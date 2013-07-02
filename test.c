@@ -21,7 +21,8 @@ int main_serial()
   double *a1,*b1,*c1,*x;
   double *a2,*b2,*c2,*y;
   int     N,i,ierr=0;
-  double error;
+  double  error,walltime;
+  clock_t start,end;
 
   srand(time(NULL));
 
@@ -51,11 +52,15 @@ int main_serial()
   CopyArray(c1,c2,N);
   CopyArray(x ,y ,N);
   /* solve */  
-  printf("Serial test 1 ([I]x = b => x = b):\t");
+  printf("Serial test 1 ([I]x = b => x = b):        \t");
+  start = clock();
   ierr = tridiagLU(a1,b1,c1,x,N,0,1);
+  end   = clock();
+  walltime = ((double) (end-start)) / ((double) CLOCKS_PER_SEC);
+  if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
-  printf("error = %E\n",error);
+  printf("error=%E\twalltime=%E\n",error,walltime);
 
   /* Test 2: [U]x = b => x = [U]^(-1)b */
   for (i = 0; i < N; i++) {
@@ -70,11 +75,14 @@ int main_serial()
   CopyArray(x ,y ,N);
   /* solve */  
   printf("Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr = tridiagLU(a1,b1,c1,x,N,0,1);
+  start = clock();
+  ierr  = tridiagLU(a1,b1,c1,x,N,0,1);
+  end   = clock();
+  walltime = ((double) (end-start)) / ((double) CLOCKS_PER_SEC);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
-  printf("error = %E\n",error);
+  printf("error=%E\twalltime=%E\n",error,walltime);
 
   /* Test 3: [A]x = b => x = [A]^(-1)b */
   for (i = 0; i < N; i++) {
@@ -88,12 +96,15 @@ int main_serial()
   CopyArray(c1,c2,N);
   CopyArray(x ,y ,N);
   /* solve */  
-  printf("Serial test 2 ([A]x = b => x = [A]^(-1)b):\t");
+  printf("Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
+  start = clock();
   ierr = tridiagLU(a1,b1,c1,x,N,0,1);
+  end   = clock();
+  walltime = ((double) (end-start)) / ((double) CLOCKS_PER_SEC);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
-  printf("error = %E\n",error);
+  printf("error=%E\twalltime=%E\n",error,walltime);
 
 
   /* deallocate arrays */
