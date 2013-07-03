@@ -1,1 +1,0 @@
-mpicc -c *.c && mpicc *.o -o TEST_MPI && rm *.o

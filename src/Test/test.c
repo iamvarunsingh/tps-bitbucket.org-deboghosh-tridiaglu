@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <tridiagLU.h>
 
 static int    main_serial();
 static int    main_parallel();
 static void   CopyArray       (double*,double*,int);
 static double CalculateError  (double*,double*,double*,double*,double*,int);
 
-int tridiagLU(double*,double*,double*,double*,int,int,int);
 
 int main()
 {

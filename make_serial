@@ -1,1 +1,0 @@
-gcc -c -Dserial *.c && gcc -Dserial *.o -o TEST_SERIAL && rm *.o

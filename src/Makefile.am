@@ -1,0 +1,2 @@
+SUBDIRS = TridiagLU \
+          Test

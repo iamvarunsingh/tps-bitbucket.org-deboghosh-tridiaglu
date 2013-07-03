@@ -1,0 +1,3 @@
+bin_PROGRAMS = TRIDIAGLU
+TRIDIAGLU_SOURCES = test.c
+TRIDIAGLU_LDADD = ../TridiagLU/libTridiagLU.a
