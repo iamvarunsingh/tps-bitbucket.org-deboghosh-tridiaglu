@@ -1,52 +1,30 @@
+#include <time.h>
+#include <sys/time.h>
 #include <stdlib.h>
 #ifndef serial
 #include <mpi.h>
 #endif
+#include <tridiagLU.h>
 
-/* Parallel direct solver for tridiagonal systems */
-
-/*
-  Arguments:-
-    a   [0,n-1] double*   subdiagonal entries
-    b   [0,n-1] double*   diagonal entries
-    c   [0,n-1] double*   superdiagonal entries
-    x   [0,n-1] double*   right-hand side
-    n           int       local size of the system
-    rank        int       rank of this process
-    nproc       int       total number of processes
-
-  Output:-
-    x will contain the solution at the end of this function
-
-  Return value:-
-    0   -> successful
-    -1  -> singular system
-
-  Note:-
-    a,b,c are not preserved
-    On rank=0,        a[0] has to be zero.
-    On rank=nproc-1,  c[n-1] has to be zero.
-
-  For a serial tridiagonal solver, compile with the flag "-Dserial"
-  or call with rank = 0 and nproc = 1.
-*/
-
-
-int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc)
+int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,void *r)
 {
-  int         i,ierr = 0;
-  int         istart,iend;
-  double      sendbuf[4],recvbuf[4];
+  int             i,istart,iend,ierr = 0;
+  double          sendbuf[4],recvbuf[4];
+  TridiagLUTime   *runtimes = (TridiagLUTime*) r;
+  struct timeval  start,stage1,stage2,stage3,stage4;
 #ifndef serial
   MPI_Request *request;
   MPI_Status  *status;
 #endif
 
+  /* start */
+  gettimeofday(&start,NULL);
+
   /* Stage 1 - Parallel elimination of subdiagonal entries */
   istart  = (rank == 0 ? 1 : 2);
   iend    = n;
   for (i = istart; i < iend; i++) {
-    if (b[i-1] == 0)  return(-1);
+    if (b[i-1] == 0) return(-1);
     double factor = a[i] / b[i-1];
     b[i] -=  factor * c[i-1];
     a[i]  = -factor * a[i-1];
@@ -58,6 +36,9 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc)
       x[0] -=  factor * x[i-1];
     }
   }
+
+  /* end of stage 1 */
+  gettimeofday(&stage1,NULL);
 
   /* Stage 2 - Eliminate the first sub- & super-diagonal entries */
   /* This needs the last (a,b,c) from the previous process       */
@@ -92,6 +73,9 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc)
     x[0]  -=  factor * x[n-1];
   }
 
+  /* end of stage 2 */
+  gettimeofday(&stage2,NULL);
+
 
   /* Stage 3 - Solve the reduced (nproc-1) X (nproc-1) tridiagonal system   */
   /**** BAD IMPLEMENTATION - solving this on ALL processes except the first */
@@ -124,7 +108,7 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc)
 
     /* solve the system independently on all the process */
     if (nproc-1 > 1) {
-      ierr = tridiagLU(ra,rb,rc,rx,nproc-1,0,1);
+      ierr = tridiagLU(ra,rb,rc,rx,nproc-1,0,1,NULL);
       if (ierr) return(ierr);
     } else rx[0] /= rb[0];
 
@@ -139,6 +123,9 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc)
     free(rx);
   }
 
+  /* end of stage 3 */
+  gettimeofday(&stage3,NULL);
+
   /* Stage 4 - Parallel back-substitution to get the solution  */
   istart = n-1;
   iend   = (rank == 0 ? 0 : 1);
@@ -149,7 +136,26 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc)
     x[i] = (x[i]-c[i]*x[i+1]-a[i]*x[0]) / b[i];
   }
 
+  /* end of stage 4 */
+  gettimeofday(&stage4,NULL);
+
   /* Done - now x contains the solution */
+
+  /* save runtimes if needed */
+  if (runtimes) {
+    long long walltime;
+    walltime = ((stage1.tv_sec * 1000000 + stage1.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec));
+    runtimes->stage1_time = (double) walltime / 1000000.0;
+    walltime = ((stage2.tv_sec * 1000000 + stage2.tv_usec) - (stage1.tv_sec * 1000000 + stage1.tv_usec));
+    runtimes->stage2_time = (double) walltime / 1000000.0;
+    walltime = ((stage3.tv_sec * 1000000 + stage3.tv_usec) - (stage2.tv_sec * 1000000 + stage2.tv_usec));
+    runtimes->stage3_time = (double) walltime / 1000000.0;
+    walltime = ((stage4.tv_sec * 1000000 + stage4.tv_usec) - (stage3.tv_sec * 1000000 + stage3.tv_usec));
+    runtimes->stage4_time = (double) walltime / 1000000.0;
+    walltime = ((stage4.tv_sec * 1000000 + stage4.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec));
+    runtimes->total_time = (double) walltime / 1000000.0;
+  }
+
   return(0);
 }
 
