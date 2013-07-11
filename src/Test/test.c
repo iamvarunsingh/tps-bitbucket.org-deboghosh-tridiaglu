@@ -12,14 +12,14 @@ static void   CopyArray       (double*,double*,int);
 static int    main_serial     (int);
 static double CalculateError  (double*,double*,double*,double*,double*,int);
 #else
-static int    main_mpi        (int,int,int);
+static int    main_mpi        (int,int,int,int);
 static int    partition1D     (int,int,int,int*);
 static double CalculateError  (double*,double*,double*,double*,double*,int,int,int);
 #endif
 
 int main(int argc, char *argv[])
 {
-  int ierr,N;
+  int ierr,N,NRuns;
 #ifdef serial
   printf("Enter N: ");
   scanf ("%d",&N);
@@ -31,11 +31,11 @@ int main(int argc, char *argv[])
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
   MPI_Comm_size(MPI_COMM_WORLD,&nproc);
   if (!rank) {
-    printf("Enter N: ");
-    scanf ("%d",&N);
+    scanf ("%d %d",&N,&NRuns);
   }
   MPI_Bcast(&N,1,MPI_INT,0,MPI_COMM_WORLD);
-  ierr = main_mpi(N,rank,nproc);
+  MPI_Bcast(&NRuns,1,MPI_INT,0,MPI_COMM_WORLD);
+  ierr = main_mpi(N,NRuns,rank,nproc);
   if (ierr) fprintf(stderr,"main_mpi() returned with an error code of %d on rank %d.\n",ierr,rank);
   MPI_Finalize();
 #endif
@@ -144,7 +144,7 @@ int main_serial(int N)
   return(0);
 }
 #else
-int main_mpi(int N,int rank,int nproc)
+int main_mpi(int N,int NRuns,int rank,int nproc)
 {
   double *a1,*b1,*c1,*x;
   double *a2,*b2,*c2,*y;
@@ -250,16 +250,16 @@ int main_mpi(int N,int rank,int nproc)
     x[i]  = ((double) rand()) / ((double) RAND_MAX);
   }
   /* solve */  
-  if (!rank) printf("MPI test 4 (Speed test):\t");
+  if (!rank) printf("MPI test 4 (Speed test - %d Tridiagonal Solves):\t",NRuns);
   struct timeval start, end;
   MPI_Barrier(MPI_COMM_WORLD);
   gettimeofday(&start,NULL);
-  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc);  
+  for (i = 0; i < NRuns; i++) ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc);  
   MPI_Barrier(MPI_COMM_WORLD);
   gettimeofday(&end,NULL);
-  long walltime = ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec));
+  long long walltime = ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec));
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
-  if (!rank) printf("walltime=%ld\n",walltime);
+  if (!rank) printf("walltime=%E\n",((double)walltime)/(1000000.0));
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* deallocate arrays */

@@ -4,6 +4,7 @@
 #endif
 
 /* Parallel direct solver for tridiagonal systems */
+
 /*
   Arguments:-
     a   [0,n-1] double*   subdiagonal entries
