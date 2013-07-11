@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>
 #ifndef serial
 #include <mpi.h>
 #endif
@@ -148,8 +149,7 @@ int main_mpi(int N,int rank,int nproc)
   double *a1,*b1,*c1,*x;
   double *a2,*b2,*c2,*y;
   int     i,ierr=0,nlocal;
-  double  error,total_error,walltime;
-  clock_t start,end;
+  double  error,total_error;
 
   srand(time(NULL));
 
@@ -184,14 +184,13 @@ int main_mpi(int N,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
-  start = clock();  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc);  end = clock();
-  walltime = ((double) (end-start)) / ((double) CLOCKS_PER_SEC);
+  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
   if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   else            total_error = error;
-  if (!rank)  printf("error=%E\twalltime=%E\n",total_error,walltime);
+  if (!rank)  printf("error=%E\n",total_error);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* Test 2: [U]x = b => x = [U]^(-1)b */
@@ -208,14 +207,13 @@ int main_mpi(int N,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  start = clock();  ierr  = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc);  end = clock();
-  walltime = ((double) (end-start)) / ((double) CLOCKS_PER_SEC);
+  ierr  = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
   if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   else            total_error = error;
-  if (!rank) printf("error=%E\twalltime=%E\n",total_error,walltime);
+  if (!rank) printf("error=%E\n",total_error);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* Test 3: [A]x = b => x = [A]^(-1)b */
@@ -233,14 +231,35 @@ int main_mpi(int N,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  start = clock();  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc);  end   = clock();
-  walltime = ((double) (end-start)) / ((double) CLOCKS_PER_SEC);
+  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
   if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   else            total_error = error;
-  if (!rank) printf("error=%E\twalltime=%E\n",total_error,walltime);
+  if (!rank) printf("error=%E\n",total_error);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* Test 4: Same as test 3, but for computational cost test */
+  for (i = 0; i < nlocal; i++) {
+    if (!rank )           a1[i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+    else                  a1[i] = ((double) rand()) / ((double) RAND_MAX);
+    b1[i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
+    if (rank == nproc-1)  c1[i] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+    else                  c1[i] = ((double) rand()) / ((double) RAND_MAX);
+    x[i]  = ((double) rand()) / ((double) RAND_MAX);
+  }
+  /* solve */  
+  if (!rank) printf("MPI test 4 (Speed test):\t");
+  struct timeval start, end;
+  MPI_Barrier(MPI_COMM_WORLD);
+  gettimeofday(&start,NULL);
+  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc);  
+  MPI_Barrier(MPI_COMM_WORLD);
+  gettimeofday(&end,NULL);
+  long walltime = ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec));
+  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+  if (!rank) printf("walltime=%ld\n",walltime);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* deallocate arrays */
