@@ -258,6 +258,13 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   if (!rank) printf("\t\tStage2 walltime = %E\n",runtimes[2]);
   if (!rank) printf("\t\tStage3 walltime = %E\n",runtimes[3]);
   if (!rank) printf("\t\tStage4 walltime = %E\n",runtimes[4]);
+  if (!rank) {
+    FILE *out;
+    out = fopen("walltimes.dat","w");
+    fprintf(out,"%5d  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
+            runtimes[1],runtimes[2],runtimes[3],runtimes[4]);
+    fclose(out);
+  }
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* deallocate arrays */
