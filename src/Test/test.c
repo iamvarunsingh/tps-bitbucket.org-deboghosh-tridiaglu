@@ -18,13 +18,14 @@ static double CalculateError  (double*,double*,double*,double*,double*,int,int,i
 
 int main(int argc, char *argv[])
 {
-  int ierr,N,NRuns;
+  int ierr,N;
 #ifdef serial
   printf("Enter N: ");
   scanf ("%d",&N);
   ierr = main_serial(N);
   if (ierr) fprintf(stderr,"main_mpi() returned with an error code of %d.\n",ierr);
 #else
+  int NRuns;
   int rank,nproc;
   MPI_Init(&argc,&argv);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
@@ -95,7 +96,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr  = tridiagLU(a1,b1,c1,x,N,0,1);
+  ierr  = tridiagLU(a1,b1,c1,x,N,0,1,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
