@@ -250,7 +250,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
     runtimes[3] += timing.stage3_time;
     runtimes[4] += timing.stage4_time;
   }
-  MPI_Allreduce(&runtimes[0],&runtimes[0],5,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE,&runtimes[0],5,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   if (!rank) printf("\t\tTotal  walltime = %E\n",runtimes[0]);
   if (!rank) printf("\t\tStage1 walltime = %E\n",runtimes[1]);

@@ -100,10 +100,10 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,v
 
     /* assemble the complete arrays across all processes */
 #ifndef serial
-    if (nproc > 1) MPI_Allreduce(ra,ra,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    if (nproc > 1) MPI_Allreduce(rb,rb,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    if (nproc > 1) MPI_Allreduce(rc,rc,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    if (nproc > 1) MPI_Allreduce(rx,rx,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,ra,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rb,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rc,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rx,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 #endif
 
     /* solve the system independently on all the process */
