@@ -6,15 +6,16 @@
 #endif
 #include <tridiagLU.h>
 
-int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,void *r)
+int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,void *r,void *comnctr)
 {
   int             i,istart,iend,ierr = 0;
   double          sendbuf[4],recvbuf[4];
   TridiagLUTime   *runtimes = (TridiagLUTime*) r;
   struct timeval  start,stage1,stage2,stage3,stage4;
 #ifndef serial
-  MPI_Request *request;
-  MPI_Status  *status;
+  MPI_Comm        *comm = (MPI_Comm*) comnctr;
+  MPI_Request     *request;
+  MPI_Status      *status;
 #endif
 
   /* start */
@@ -48,9 +49,9 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,v
     int nreq = ((rank == 0 || rank == nproc-1) ? 1 : 2);
     request  = (MPI_Request*) calloc (nreq,sizeof(MPI_Request));
     status   = (MPI_Status*)  calloc (nreq,sizeof(MPI_Status));
-    if (rank != nproc-1)  MPI_Isend(&sendbuf[0],4,MPI_DOUBLE,rank+1,1436,MPI_COMM_WORLD,&request[0]);
-    if (rank == nproc-1 ) MPI_Irecv(&recvbuf[0],4,MPI_DOUBLE,rank-1,1436,MPI_COMM_WORLD,&request[0]);
-    else if (rank)        MPI_Irecv(&recvbuf[0],4,MPI_DOUBLE,rank-1,1436,MPI_COMM_WORLD,&request[1]);
+    if (rank != nproc-1)  MPI_Isend(&sendbuf[0],4,MPI_DOUBLE,rank+1,1436,*comm,&request[0]);
+    if (rank == nproc-1 ) MPI_Irecv(&recvbuf[0],4,MPI_DOUBLE,rank-1,1436,*comm,&request[0]);
+    else if (rank)        MPI_Irecv(&recvbuf[0],4,MPI_DOUBLE,rank-1,1436,*comm,&request[1]);
     MPI_Waitall(nreq,&request[0],&status[0]);
     free(request);
     free(status);
@@ -100,15 +101,15 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,v
 
     /* assemble the complete arrays across all processes */
 #ifndef serial
-    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,ra,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rb,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rc,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rx,nproc-1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,ra,nproc-1,MPI_DOUBLE,MPI_SUM,*comm);
+    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rb,nproc-1,MPI_DOUBLE,MPI_SUM,*comm);
+    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rc,nproc-1,MPI_DOUBLE,MPI_SUM,*comm);
+    if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rx,nproc-1,MPI_DOUBLE,MPI_SUM,*comm);
 #endif
 
     /* solve the system independently on all the process */
     if (nproc-1 > 1) {
-      ierr = tridiagLU(ra,rb,rc,rx,nproc-1,0,1,NULL);
+      ierr = tridiagLU(ra,rb,rc,rx,nproc-1,0,1,NULL,NULL);
       if (ierr) return(ierr);
     } else rx[0] /= rb[0];
 

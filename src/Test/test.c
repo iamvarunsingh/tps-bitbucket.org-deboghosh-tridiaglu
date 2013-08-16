@@ -77,7 +77,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLU Serial test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLU(a1,b1,c1,x,N,0,1,NULL);
+  ierr = tridiagLU(a1,b1,c1,x,N,0,1,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -115,7 +115,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLU Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLU(a1,b1,c1,x,N,0,1,NULL);
+  ierr = tridiagLU(a1,b1,c1,x,N,0,1,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -136,7 +136,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLURD Serial test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLURD(a1,b1,c1,x,N,0,1,NULL);
+  ierr = tridiagLURD(a1,b1,c1,x,N,0,1,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -174,7 +174,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLURD Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLURD(a1,b1,c1,x,N,0,1,NULL);
+  ierr = tridiagLURD(a1,b1,c1,x,N,0,1,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -194,10 +194,11 @@ int main_serial(int N)
 #else
 int main_mpi(int N,int NRuns,int rank,int nproc)
 {
-  double *a1,*b1,*c1,*x;
-  double *a2,*b2,*c2,*y;
-  int     i,ierr=0,nlocal;
-  double  error,total_error;
+  double    *a1,*b1,*c1,*x;
+  double    *a2,*b2,*c2,*y;
+  int       i,ierr=0,nlocal;
+  double    error,total_error;
+  MPI_Comm  world = MPI_COMM_WORLD;
 
   srand(time(NULL));
 
@@ -232,7 +233,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,NULL);
+  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -255,7 +256,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr  = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,NULL);
+  ierr  = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -279,7 +280,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,NULL);
+  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -304,7 +305,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL);
+  ierr = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -327,7 +328,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr  = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL);
+  ierr  = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -351,13 +352,14 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL);
+  ierr = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
   if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   else            total_error = error;
   if (!rank) printf("error=%E\n",total_error);
+  MPI_Barrier(MPI_COMM_WORLD);
 
   /**** Scalability Test for tridiagLU() ****/
 
@@ -375,7 +377,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   double runtimes[5] = {0.0,0.0,0.0,0.0,0.0};
   for (i = 0; i < NRuns; i++) {
     TridiagLUTime timing;
-    ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,&timing);
+    ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,&timing,&world);
     runtimes[0] += timing.total_time;
     runtimes[1] += timing.stage1_time;
     runtimes[2] += timing.stage2_time;
@@ -384,12 +386,12 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   }
   MPI_Allreduce(MPI_IN_PLACE,&runtimes[0],5,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
-  if (!rank) printf("\t\tTotal  walltime = %E\n",runtimes[0]);
-  if (!rank) printf("\t\tStage1 walltime = %E\n",runtimes[1]);
-  if (!rank) printf("\t\tStage2 walltime = %E\n",runtimes[2]);
-  if (!rank) printf("\t\tStage3 walltime = %E\n",runtimes[3]);
-  if (!rank) printf("\t\tStage4 walltime = %E\n",runtimes[4]);
   if (!rank) {
+    printf("\t\tTotal  walltime = %E\n",runtimes[0]);
+    printf("\t\tStage1 walltime = %E\n",runtimes[1]);
+    printf("\t\tStage2 walltime = %E\n",runtimes[2]);
+    printf("\t\tStage3 walltime = %E\n",runtimes[3]);
+    printf("\t\tStage4 walltime = %E\n",runtimes[4]);
     FILE *out;
     out = fopen("walltimes.dat","w");
     fprintf(out,"%5d  %E  %E  %E  %E  %E\n",nproc,runtimes[0],

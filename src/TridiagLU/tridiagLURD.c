@@ -8,24 +8,25 @@
 #include <tridiagLU.h>
 
 #ifndef serial
-static int RecursiveDoublingForward(double*,int,int);
-static int RecursiveDoublingReverse(double*,int,int);
+static int RecursiveDoublingForward(double*,int,int,void*);
+static int RecursiveDoublingReverse(double*,int,int,void*);
 #endif
 
-int tridiagLURD(double *a,double *b,double *c,double *x,int n,int rank,int nproc,void *r)
+int tridiagLURD(double *a,double *b,double *c,double *x,int n,int rank,int nproc,void *r,void *comnctr)
 {
   int         i,ierr;
   const int   nvar = 4;
 #ifndef serial
-  MPI_Request sndreq;
-  MPI_Status  rcvsts;
+  MPI_Comm        *comm = (MPI_Comm*) comnctr;
+  MPI_Request     sndreq;
+  MPI_Status      rcvsts;
 #endif
 
   /* Step 1 -> send the last c to the next proc */
   double cpp = 0; /* last c from previous process */
 #ifndef serial
-  if (rank+1 < nproc) MPI_Isend(&c[n-1],1,MPI_DOUBLE,rank+1,0,MPI_COMM_WORLD,&sndreq);
-  if (rank-1 >= 0   ) MPI_Recv (&cpp   ,1,MPI_DOUBLE,rank-1,0,MPI_COMM_WORLD,&rcvsts);
+  if (rank+1 < nproc) MPI_Isend(&c[n-1],1,MPI_DOUBLE,rank+1,0,*comm,&sndreq);
+  if (rank-1 >= 0   ) MPI_Recv (&cpp   ,1,MPI_DOUBLE,rank-1,0,*comm,&rcvsts);
 #endif
 
   /* Sequential recursion */
@@ -44,15 +45,15 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,int rank,int nproc
 
   /* Full Recursive Doubling (Forward) */
 #ifndef serial
-  ierr = RecursiveDoublingForward(&S[0],rank,nproc);
+  ierr = RecursiveDoublingForward(&S[0],rank,nproc,comm);
 #endif
 
   /* Combine step */
   b[n-1] = (S[0]+S[1]) / (S[2]+S[3]);
   double bpp = 1; /* last b from previous process */
 #ifndef serial
-  if (rank+1 < nproc) MPI_Isend(&b[n-1],1,MPI_DOUBLE,rank+1,0,MPI_COMM_WORLD,&sndreq);
-  if (rank-1 >= 0   ) MPI_Recv (&bpp   ,1,MPI_DOUBLE,rank-1,0,MPI_COMM_WORLD,&rcvsts);
+  if (rank+1 < nproc) MPI_Isend(&b[n-1],1,MPI_DOUBLE,rank+1,0,*comm,&sndreq);
+  if (rank-1 >= 0   ) MPI_Recv (&bpp   ,1,MPI_DOUBLE,rank-1,0,*comm,&rcvsts);
 #endif
   for (i = 0; i < n-1; i++) {
     double factor = a[i] / (i==0 ? bpp : b[i-1]);
@@ -76,15 +77,15 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,int rank,int nproc
 
   /* Forward Sweep - Full Recursive Doubling (Forward) */
 #ifndef serial
-  ierr = RecursiveDoublingForward(&L[0],rank,nproc);
+  ierr = RecursiveDoublingForward(&L[0],rank,nproc,comm);
 #endif
 
   /* Forward Sweep - Combine step */
   x[n-1] = (L[0]+L[1]) / (L[2]+L[3]);
   double xpp = 0; /* last b from previous process */
 #ifndef serial
-  if (rank+1 < nproc) MPI_Isend(&x[n-1],1,MPI_DOUBLE,rank+1,0,MPI_COMM_WORLD,&sndreq);
-  if (rank-1 >= 0   ) MPI_Recv (&xpp   ,1,MPI_DOUBLE,rank-1,0,MPI_COMM_WORLD,&rcvsts);
+  if (rank+1 < nproc) MPI_Isend(&x[n-1],1,MPI_DOUBLE,rank+1,0,*comm,&sndreq);
+  if (rank-1 >= 0   ) MPI_Recv (&xpp   ,1,MPI_DOUBLE,rank-1,0,*comm,&rcvsts);
 #endif
   for (i = 0; i < n-1; i++) {
     double factor = a[i] / (i==0 ? bpp : b[i-1]);
@@ -108,29 +109,28 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,int rank,int nproc
 
   /* Backward Sweep - Full recursive doubling in reverse */
 #ifndef serial
-  ierr = RecursiveDoublingReverse(&U[0],rank,nproc);
+  ierr = RecursiveDoublingReverse(&U[0],rank,nproc,comm);
 #endif
 
   /* Backward Sweep - Combine step */
   x[0] = (U[0]+U[1]) / (U[2]+U[3]);
   double xnp = 0; /* first x from the next process */
 #ifndef serial
-  if (rank-1 >= 0   ) MPI_Isend(&x[0],1,MPI_DOUBLE,rank-1,0,MPI_COMM_WORLD,&sndreq);
-  if (rank+1 < nproc) MPI_Recv (&xnp ,1,MPI_DOUBLE,rank+1,0,MPI_COMM_WORLD,&rcvsts);
+  if (rank-1 >= 0   ) MPI_Isend(&x[0],1,MPI_DOUBLE,rank-1,0,*comm,&sndreq);
+  if (rank+1 < nproc) MPI_Recv (&xnp ,1,MPI_DOUBLE,rank+1,0,*comm,&rcvsts);
 #endif
-  for (i = n-1; i > 0; i--) {
-    x[i] = (x[i] - c[i] * (i==(n-1) ? xnp : x[i+1])) / b[i];
-  }
+  for (i = n-1; i > 0; i--) x[i] = (x[i] - c[i] * (i==(n-1) ? xnp : x[i+1])) / b[i];
 
   /* Done! */
   return(0);
 }
 
 #ifndef serial
-int RecursiveDoublingForward(double *S,int rank,int nproc)
+int RecursiveDoublingForward(double *S,int rank,int nproc,void *c)
 {
+  MPI_Comm  *comm = (MPI_Comm*) c;
   const int nvar=4;
-  int d;
+  int       d;
   for (d = 0; 1<<d < nproc; d++) {
     MPI_Request sndreq;
     MPI_Status  rcvsts;
@@ -138,8 +138,8 @@ int RecursiveDoublingForward(double *S,int rank,int nproc)
     int         j;
     double      *T = (double*) calloc (nvar,sizeof(double));
     T[0] = 1; T[1] = 0; T[2] = 0; T[3] = 1;
-    if (rank+(1<<d) < nproc) MPI_Isend(S,nvar,MPI_DOUBLE,rank+(1<<d),d,MPI_COMM_WORLD,&sndreq);
-    if (rank-(1<<d) >= 0   ) MPI_Recv (T,nvar,MPI_DOUBLE,rank-(1<<d),d,MPI_COMM_WORLD,&rcvsts);
+    if (rank+(1<<d) < nproc) MPI_Isend(S,nvar,MPI_DOUBLE,rank+(1<<d),d,*comm,&sndreq);
+    if (rank-(1<<d) >= 0   ) MPI_Recv (T,nvar,MPI_DOUBLE,rank-(1<<d),d,*comm,&rcvsts);
     s[0] = S[0]*T[0] + S[1]*T[2];
     s[1] = S[0]*T[1] + S[1]*T[3];
     s[2] = S[2]*T[0] + S[3]*T[2];
@@ -149,10 +149,11 @@ int RecursiveDoublingForward(double *S,int rank,int nproc)
   }
   return(0);
 }
-int RecursiveDoublingReverse(double *S,int rank,int nproc)
+int RecursiveDoublingReverse(double *S,int rank,int nproc,void *c)
 {
+  MPI_Comm  *comm = (MPI_Comm*) c;
   const int nvar=4;
-  int d;
+  int       d;
   for (d = 0; 1<<d < nproc; d++) {
     MPI_Request sndreq;
     MPI_Status  rcvsts;
@@ -160,8 +161,8 @@ int RecursiveDoublingReverse(double *S,int rank,int nproc)
     int         j;
     double      *T = (double*) calloc (nvar,sizeof(double));
     T[0] = 1; T[1] = 0; T[2] = 0; T[3] = 1;
-    if (rank-(1<<d) >= 0   ) MPI_Isend(S,nvar,MPI_DOUBLE,rank-(1<<d),d,MPI_COMM_WORLD,&sndreq);
-    if (rank+(1<<d) < nproc) MPI_Recv (T,nvar,MPI_DOUBLE,rank+(1<<d),d,MPI_COMM_WORLD,&rcvsts);
+    if (rank-(1<<d) >= 0   ) MPI_Isend(S,nvar,MPI_DOUBLE,rank-(1<<d),d,*comm,&sndreq);
+    if (rank+(1<<d) < nproc) MPI_Recv (T,nvar,MPI_DOUBLE,rank+(1<<d),d,*comm,&rcvsts);
     s[0] = S[0]*T[0] + S[1]*T[2];
     s[1] = S[0]*T[1] + S[1]*T[3];
     s[2] = S[2]*T[0] + S[3]*T[2];

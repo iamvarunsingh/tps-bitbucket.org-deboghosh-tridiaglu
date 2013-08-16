@@ -2,6 +2,11 @@
 
   Parallel direct solver for tridiagonal systems 
 
+  tridiagLU  (a,b,c,x,n,rank,nproc,r,comm) (Parallel tridiagonal solver)
+  tridiagLURD(a,b,c,x,n,rank,nproc,r,comm) (Parallel tridiagonal solver
+                                            based on the recursive-
+                                            doubling algorithm)
+
   Arguments:-
     a   [0,n-1] double*         subdiagonal entries
     b   [0,n-1] double*         diagonal entries
@@ -10,7 +15,7 @@
     n           int             local size of the system
     rank        int             rank of this process
     nproc       int             total number of processes
-    r           TridiagLUTime   structure containing the runtimes
+    r           TridiagLUTime*  structure containing the runtimes
                                   total_time
                                   stage1_time
                                   stage2_time
@@ -20,6 +25,7 @@
                                  Calling function needs to do something 
                                  to add/average them to get some global 
                                  value.
+    comm        MPI_COMM*       MPI Communicator (NULL for serial)
 
   Return value (int) -> 0 (successful solve), -1 (singular system)
 
@@ -42,5 +48,5 @@ typedef struct _tridiagLUruntimes_ {
   double  stage4_time;
 } TridiagLUTime;
 
-int tridiagLU  (double*,double*,double*,double*,int,int,int,void*);
-int tridiagLURD(double*,double*,double*,double*,int,int,int,void*);
+int tridiagLU  (double*,double*,double*,double*,int,int,int,void*,void*);
+int tridiagLURD(double*,double*,double*,double*,int,int,int,void*,void*);
