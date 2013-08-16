@@ -472,10 +472,13 @@ double CalculateError(double *a,double *b,double *c,double *y,double *x,int N,in
 
   error = 0;
   for (i = 0; i < N; i++) {
-    double val;
-    if (i == 0)         val = y[i] - (a[i]*xm1   +b[i]*x[i]+c[i]*x[i+1]);
-    else if (i == N-1)  val = y[i] - (a[i]*x[i-1]+b[i]*x[i]+c[i]*xp1   );
-    else                val = y[i] - (a[i]*x[i-1]+b[i]*x[i]+c[i]*x[i+1]);
+    double val = 0;
+    if (i == 0)    val += a[i]*xm1;
+    else           val += a[i]*x[i-1];
+    val += b[i]*x[i];
+    if (i == N-1)  val += c[i]*xp1;
+    else           val += c[i]*x[i+1];
+    val = y[i] - val;
     error += val * val;
   }
   return(error);

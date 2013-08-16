@@ -93,8 +93,9 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,void *r,void *comnct
 
 
   /* Stage 3 - Solve the reduced (nproc-1) X (nproc-1) tridiagonal system   */
-  /**** BAD IMPLEMENTATION - solving this on ALL processes except the first */
   double xp1 = 0.0; /* solution for the first element on the next process   */
+#ifdef brute 
+  /**** BAD IMPLEMENTATION - solving this on ALL processes except the first */
   if (nproc > 1) {
     double *ra,*rb,*rc,*rx; /* arrays for the reduced tridiagonal system      */
 
@@ -137,7 +138,10 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,void *r,void *comnct
     free(rc);
     free(rx);
   }
-
+#else
+  if (nproc > 1) {
+  }
+#endif
   /* end of stage 3 */
   gettimeofday(&stage3,NULL);
 
