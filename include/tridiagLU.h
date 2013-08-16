@@ -42,4 +42,5 @@ typedef struct _tridiagLUruntimes_ {
   double  stage4_time;
 } TridiagLUTime;
 
-int tridiagLU(double*,double*,double*,double*,int,int,int,void*);
+int tridiagLU  (double*,double*,double*,double*,int,int,int,void*);
+int tridiagLURD(double*,double*,double*,double*,int,int,int,void*);

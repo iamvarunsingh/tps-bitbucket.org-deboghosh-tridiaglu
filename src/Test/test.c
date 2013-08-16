@@ -52,8 +52,6 @@ int main_serial(int N)
 
   srand(time(NULL));
 
-  printf("Testing serial tridiagLU() with N=%d\n",N);
-
   /* allocate arrays */
   a1 = (double*) calloc (N,sizeof(double));
   b1 = (double*) calloc (N,sizeof(double));
@@ -63,6 +61,8 @@ int main_serial(int N)
   c2 = (double*) calloc (N,sizeof(double));
   x  = (double*) calloc (N,sizeof(double));
   y = (double*) calloc (N,sizeof(double));
+
+  printf("Testing serial tridiagLU() with N=%d\n",N);
 
   /* Test 1: [I]x = b => x = b */
   for (i = 0; i < N; i++) {
@@ -76,7 +76,7 @@ int main_serial(int N)
   CopyArray(c1,c2,N);
   CopyArray(x ,y ,N);
   /* solve */  
-  printf("Serial test 1 ([I]x = b => x = b):        \t");
+  printf("TridiagLU Serial test 1 ([I]x = b => x = b):        \t");
   ierr = tridiagLU(a1,b1,c1,x,N,0,1,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
@@ -95,7 +95,7 @@ int main_serial(int N)
   CopyArray(c1,c2,N);
   CopyArray(x ,y ,N);
   /* solve */  
-  printf("Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
+  printf("TridiagLU Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
   ierr  = tridiagLU(a1,b1,c1,x,N,0,1,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
@@ -114,13 +114,71 @@ int main_serial(int N)
   CopyArray(c1,c2,N);
   CopyArray(x ,y ,N);
   /* solve */  
-  printf("Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
+  printf("TridiagLU Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
   ierr = tridiagLU(a1,b1,c1,x,N,0,1,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
   printf("error=%E\n",error);
 
+  printf("Testing serial tridiagLURD() with N=%d\n",N);
+
+  /* Test 1: [I]x = b => x = b */
+  for (i = 0; i < N; i++) {
+    a1[i] = 0.0;
+    b1[i] = 1.0;
+    c1[i] = 0.0;
+    x[i]  = rand();
+  }
+  CopyArray(a1,a2,N);
+  CopyArray(b1,b2,N);
+  CopyArray(c1,c2,N);
+  CopyArray(x ,y ,N);
+  /* solve */  
+  printf("TridiagLURD Serial test 1 ([I]x = b => x = b):        \t");
+  ierr = tridiagLURD(a1,b1,c1,x,N,0,1,NULL);
+  if (ierr == -1) printf("Error - system is singular\t");
+  /* calculate error */
+  error = CalculateError(a2,b2,c2,y,x,N);
+  printf("error=%E\n",error);
+
+  /* Test 2: [U]x = b => x = [U]^(-1)b */
+  for (i = 0; i < N; i++) {
+    a1[i] = 0.0;
+    b1[i] = 2.0;
+    c1[i] = (i == N-1 ? 0 : 0.5);
+    x[i]  = 1.0;
+  }
+  CopyArray(a1,a2,N);
+  CopyArray(b1,b2,N);
+  CopyArray(c1,c2,N);
+  CopyArray(x ,y ,N);
+  /* solve */  
+  printf("TridiagLURD Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
+  ierr  = tridiagLURD(a1,b1,c1,x,N,0,1,NULL);
+  if (ierr == -1) printf("Error - system is singular\t");
+  /* calculate error */
+  error = CalculateError(a2,b2,c2,y,x,N);
+  printf("error=%E\n",error);
+
+  /* Test 3: [A]x = b => x = [A]^(-1)b */
+  for (i = 0; i < N; i++) {
+    a1[i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+    b1[i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
+    c1[i] = (i == N-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+    x[i]  = ((double) rand()) / ((double) RAND_MAX);
+  }
+  CopyArray(a1,a2,N);
+  CopyArray(b1,b2,N);
+  CopyArray(c1,c2,N);
+  CopyArray(x ,y ,N);
+  /* solve */  
+  printf("TridiagLURD Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
+  ierr = tridiagLURD(a1,b1,c1,x,N,0,1,NULL);
+  if (ierr == -1) printf("Error - system is singular\t");
+  /* calculate error */
+  error = CalculateError(a2,b2,c2,y,x,N);
+  printf("error=%E\n",error);
 
   /* deallocate arrays */
   free(a1);
@@ -143,12 +201,10 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
 
   srand(time(NULL));
 
-  if (!rank) printf("Testing MPI tridiagLU() with N=%d on %d processes\n",N,nproc);
-  MPI_Barrier(MPI_COMM_WORLD);
-
   /* find local size */
   ierr = partition1D(N,nproc,rank,&nlocal);
   printf("Rank: %10d,\tLocal Size: %10d\n",rank,nlocal);
+  MPI_Barrier(MPI_COMM_WORLD);
 
   /* allocate arrays */
   a1 = (double*) calloc (nlocal,sizeof(double));
@@ -159,6 +215,8 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   c2 = (double*) calloc (nlocal,sizeof(double));
   x  = (double*) calloc (nlocal,sizeof(double));
   y  = (double*) calloc (nlocal,sizeof(double));
+
+  if (!rank) printf("Testing MPI tridiagLU() with N=%d on %d processes\n",N,nproc);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* Test 1: [I]x = b => x = b */
@@ -229,6 +287,79 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   else            total_error = error;
   if (!rank) printf("error=%E\n",total_error);
   MPI_Barrier(MPI_COMM_WORLD);
+
+  if (!rank) printf("Testing MPI tridiagLURD() with N=%d on %d processes\n",N,nproc);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* Test 1: [I]x = b => x = b */
+  for (i = 0; i < nlocal; i++) {
+    a1[i] = 0.0;
+    b1[i] = 1.0;
+    c1[i] = 0.0;
+    x[i]  = rand();
+  }
+  CopyArray(a1,a2,nlocal);
+  CopyArray(b1,b2,nlocal);
+  CopyArray(c1,c2,nlocal);
+  CopyArray(x ,y ,nlocal);
+  /* solve */  
+  if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
+  ierr = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL);
+  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+  /* calculate error */
+  error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
+  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            total_error = error;
+  if (!rank)  printf("error=%E\n",total_error);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* Test 2: [U]x = b => x = [U]^(-1)b */
+  for (i = 0; i < nlocal; i++) {
+    a1[i] = 0.0;
+    b1[i] = 0.5;
+    if (rank == nproc-1) c1[i] = (i == nlocal-1 ? 0 : 0.5);
+    else                 c1[i] = 0.5;
+    x[i]  = 1.0;
+  }
+  CopyArray(a1,a2,nlocal);
+  CopyArray(b1,b2,nlocal);
+  CopyArray(c1,c2,nlocal);
+  CopyArray(x ,y ,nlocal);
+  /* solve */  
+  if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
+  ierr  = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL);
+  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+  /* calculate error */
+  error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
+  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            total_error = error;
+  if (!rank) printf("error=%E\n",total_error);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* Test 3: [A]x = b => x = [A]^(-1)b */
+  for (i = 0; i < nlocal; i++) {
+    if (!rank )           a1[i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+    else                  a1[i] = ((double) rand()) / ((double) RAND_MAX);
+    b1[i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
+    if (rank == nproc-1)  c1[i] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+    else                  c1[i] = ((double) rand()) / ((double) RAND_MAX);
+    x[i]  = ((double) rand()) / ((double) RAND_MAX);
+  }
+  CopyArray(a1,a2,nlocal);
+  CopyArray(b1,b2,nlocal);
+  CopyArray(c1,c2,nlocal);
+  CopyArray(x ,y ,nlocal);
+  /* solve */  
+  if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
+  ierr = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL);
+  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+  /* calculate error */
+  error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
+  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            total_error = error;
+  if (!rank) printf("error=%E\n",total_error);
+
+  /**** Scalability Test for tridiagLU() ****/
 
   /* Test 4: Same as test 3, but for computational cost test */
   for (i = 0; i < nlocal; i++) {

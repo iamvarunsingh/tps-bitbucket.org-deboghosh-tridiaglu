@@ -158,23 +158,3 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,v
 
   return(0);
 }
-
-
-
-
-  /*
-  sendbuf[0] = x[0];
-#ifndef serial
-  if (nproc > 1) {
-    int nreq = ((rank == 0 || rank == nproc-1) ? 1 : 2);
-    request  = (MPI_Request*) calloc (nreq,sizeof(MPI_Request));
-    status   = (MPI_Status*)  calloc (nreq,sizeof(MPI_Status));
-    if (rank)                  MPI_Isend(&sendbuf[0],1,MPI_DOUBLE,rank-1,1538,MPI_COMM_WORLD,&request[0]);
-    if (!rank)                 MPI_Irecv(&xp1       ,1,MPI_DOUBLE,rank+1,1538,MPI_COMM_WORLD,&request[0]);
-    else if (rank != nproc-1)  MPI_Irecv(&xp1       ,1,MPI_DOUBLE,rank+1,1538,MPI_COMM_WORLD,&request[1]);
-    MPI_Waitall(nreq,&request[0],&status[0]);
-    free(request);
-    free(status);
-  }
-#endif
-  */
