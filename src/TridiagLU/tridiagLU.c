@@ -94,6 +94,7 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,void *r,void *comnct
 
   /* Stage 3 - Solve the reduced (nproc-1) X (nproc-1) tridiagonal system   */
   double xp1 = 0.0; /* solution for the first element on the next process   */
+#ifndef serial
 #ifdef brute 
   /**** BAD IMPLEMENTATION - solving this on ALL processes except the first */
   if (nproc > 1) {
@@ -115,12 +116,10 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,void *r,void *comnct
     }
 
     /* assemble the complete arrays across all processes */
-#ifndef serial
     if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,ra,nproc-1,MPI_DOUBLE,MPI_SUM,*comm);
     if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rb,nproc-1,MPI_DOUBLE,MPI_SUM,*comm);
     if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rc,nproc-1,MPI_DOUBLE,MPI_SUM,*comm);
     if (nproc > 1) MPI_Allreduce(MPI_IN_PLACE,rx,nproc-1,MPI_DOUBLE,MPI_SUM,*comm);
-#endif
 
     /* solve the system independently on all the process */
     if (nproc-1 > 1) {
@@ -140,8 +139,30 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,void *r,void *comnct
   }
 #else
   if (nproc > 1) {
+    /* create a new communicator for the reduced system */
+    MPI_Group   WholeSystem,ReducedSystem;
+    MPI_Comm    ReducedSystemComm;
+    MPI_Request sndreq;
+    MPI_Status  rcvsts;
+    int nproc_reduced =  nproc - 1;
+    int range[1][3]      =  {1,nproc-1,1};
+    MPI_Comm_group       (*comm,&WholeSystem);
+    MPI_Group_range_incl (WholeSystem,1,&range[0],&ReducedSystem);
+    MPI_Comm_create      (*comm,ReducedSystem,&ReducedSystemComm);
+    /* all process except 0 call the recursive-doubling tridiagonal solver */
+    if (rank) {
+      ierr = tridiagLURD(&a[0],&b[0],&c[0],&x[0],1,NULL,&ReducedSystemComm);
+      if (ierr) return(ierr);
+    }
+    /* destroy reduced system communicator and group */
+    if (rank) MPI_Comm_free (&ReducedSystemComm);
+    MPI_Group_free(&ReducedSystem);
+    /* Each process, get the first x of the next process */
+    if (rank)           MPI_Isend(&x[0],1,MPI_DOUBLE,rank-1,1323,*comm,&sndreq);
+    if (rank+1 < nproc) MPI_Recv (&xp1 ,1,MPI_DOUBLE,rank+1,1323,*comm,&rcvsts);
   }
-#endif
+#endif // brute
+#endif // serial
   /* end of stage 3 */
   gettimeofday(&stage3,NULL);
 

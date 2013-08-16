@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
 #include <stdlib.h>
@@ -66,8 +65,8 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,void *r,void *comn
   b[n-1] = (S[0]+S[1]) / (S[2]+S[3]);
   double bpp = 1; /* last b from previous process */
 #ifndef serial
-  if (rank+1 < nproc) MPI_Isend(&b[n-1],1,MPI_DOUBLE,rank+1,0,*comm,&sndreq);
-  if (rank-1 >= 0   ) MPI_Recv (&bpp   ,1,MPI_DOUBLE,rank-1,0,*comm,&rcvsts);
+  if (rank+1 < nproc) MPI_Isend(&b[n-1],1,MPI_DOUBLE,rank+1,1,*comm,&sndreq);
+  if (rank-1 >= 0   ) MPI_Recv (&bpp   ,1,MPI_DOUBLE,rank-1,1,*comm,&rcvsts);
 #endif
   for (i = 0; i < n-1; i++) {
     double factor = a[i] / (i==0 ? bpp : b[i-1]);
@@ -98,8 +97,8 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,void *r,void *comn
   x[n-1] = (L[0]+L[1]) / (L[2]+L[3]);
   double xpp = 0; /* last b from previous process */
 #ifndef serial
-  if (rank+1 < nproc) MPI_Isend(&x[n-1],1,MPI_DOUBLE,rank+1,0,*comm,&sndreq);
-  if (rank-1 >= 0   ) MPI_Recv (&xpp   ,1,MPI_DOUBLE,rank-1,0,*comm,&rcvsts);
+  if (rank+1 < nproc) MPI_Isend(&x[n-1],1,MPI_DOUBLE,rank+1,2,*comm,&sndreq);
+  if (rank-1 >= 0   ) MPI_Recv (&xpp   ,1,MPI_DOUBLE,rank-1,2,*comm,&rcvsts);
 #endif
   for (i = 0; i < n-1; i++) {
     double factor = a[i] / (i==0 ? bpp : b[i-1]);
@@ -130,8 +129,8 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,void *r,void *comn
   x[0] = (U[0]+U[1]) / (U[2]+U[3]);
   double xnp = 0; /* first x from the next process */
 #ifndef serial
-  if (rank-1 >= 0   ) MPI_Isend(&x[0],1,MPI_DOUBLE,rank-1,0,*comm,&sndreq);
-  if (rank+1 < nproc) MPI_Recv (&xnp ,1,MPI_DOUBLE,rank+1,0,*comm,&rcvsts);
+  if (rank-1 >= 0   ) MPI_Isend(&x[0],1,MPI_DOUBLE,rank-1,3,*comm,&sndreq);
+  if (rank+1 < nproc) MPI_Recv (&xnp ,1,MPI_DOUBLE,rank+1,3,*comm,&rcvsts);
 #endif
   for (i = n-1; i > 0; i--) x[i] = (x[i] - c[i] * (i==(n-1) ? xnp : x[i+1])) / b[i];
 
@@ -143,7 +142,7 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,void *r,void *comn
 int RecursiveDoublingForward(double *S,int rank,int nproc,void *c)
 {
   MPI_Comm  *comm = (MPI_Comm*) c;
-  const int nvar=4;
+  int const nvar=4;
   int       d;
   for (d = 0; 1<<d < nproc; d++) {
     MPI_Request sndreq;
@@ -166,7 +165,7 @@ int RecursiveDoublingForward(double *S,int rank,int nproc,void *c)
 int RecursiveDoublingReverse(double *S,int rank,int nproc,void *c)
 {
   MPI_Comm  *comm = (MPI_Comm*) c;
-  const int nvar=4;
+  int const nvar=4;
   int       d;
   for (d = 0; 1<<d < nproc; d++) {
     MPI_Request sndreq;

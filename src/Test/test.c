@@ -96,7 +96,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLU Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr  = tridiagLU(a1,b1,c1,x,N,0,1,NULL);
+  ierr = tridiagLU(a1,b1,c1,x,N,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -198,8 +198,9 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   double    *a2,*b2,*c2,*y;
   int       i,ierr=0,nlocal;
   double    error,total_error;
-  MPI_Comm  world = MPI_COMM_WORLD;
-
+  MPI_Comm  world;
+  
+  MPI_Comm_dup(MPI_COMM_WORLD,&world);
   srand(time(NULL));
 
   /* find local size */
