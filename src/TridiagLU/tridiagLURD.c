@@ -12,14 +12,28 @@ static int RecursiveDoublingForward(double*,int,int,void*);
 static int RecursiveDoublingReverse(double*,int,int,void*);
 #endif
 
-int tridiagLURD(double *a,double *b,double *c,double *x,int n,int rank,int nproc,void *r,void *comnctr)
+int tridiagLURD(double *a,double *b,double *c,double *x,int n,void *r,void *comnctr)
 {
   int         i,ierr;
+  int         rank,nproc;
   const int   nvar = 4;
 #ifndef serial
   MPI_Comm        *comm = (MPI_Comm*) comnctr;
   MPI_Request     sndreq;
   MPI_Status      rcvsts;
+#endif
+
+#ifdef serial
+  rank  = 0;
+  nproc = 1;
+#else
+  if (comm) {
+    MPI_Comm_size(*comm,&nproc);
+    MPI_Comm_rank(*comm,&rank );
+  } else {
+    rank  = 0;
+    nproc = 1;
+  }
 #endif
 
   /* Step 1 -> send the last c to the next proc */

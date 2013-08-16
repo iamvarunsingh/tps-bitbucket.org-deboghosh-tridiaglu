@@ -2,10 +2,10 @@
 
   Parallel direct solver for tridiagonal systems 
 
-  tridiagLU  (a,b,c,x,n,rank,nproc,r,comm) (Parallel tridiagonal solver)
-  tridiagLURD(a,b,c,x,n,rank,nproc,r,comm) (Parallel tridiagonal solver
-                                            based on the recursive-
-                                            doubling algorithm)
+  tridiagLU  (a,b,c,x,n,r,comm) (Parallel tridiagonal solver)
+  tridiagLURD(a,b,c,x,n,r,comm) (Parallel tridiagonal solver
+                                 based on the recursive-
+                                 doubling algorithm)
 
   Arguments:-
     a   [0,n-1] double*         subdiagonal entries
@@ -13,8 +13,6 @@
     c   [0,n-1] double*         superdiagonal entries
     x   [0,n-1] double*         right-hand side (solution)
     n           int             local size of the system
-    rank        int             rank of this process
-    nproc       int             total number of processes
     r           TridiagLUTime*  structure containing the runtimes
                                   total_time
                                   stage1_time
@@ -48,5 +46,5 @@ typedef struct _tridiagLUruntimes_ {
   double  stage4_time;
 } TridiagLUTime;
 
-int tridiagLU  (double*,double*,double*,double*,int,int,int,void*,void*);
-int tridiagLURD(double*,double*,double*,double*,int,int,int,void*,void*);
+int tridiagLU  (double*,double*,double*,double*,int,void*,void*);
+int tridiagLURD(double*,double*,double*,double*,int,void*,void*);

@@ -77,7 +77,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLU Serial test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLU(a1,b1,c1,x,N,0,1,NULL,NULL);
+  ierr = tridiagLU(a1,b1,c1,x,N,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -115,7 +115,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLU Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLU(a1,b1,c1,x,N,0,1,NULL,NULL);
+  ierr = tridiagLU(a1,b1,c1,x,N,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -136,7 +136,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLURD Serial test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLURD(a1,b1,c1,x,N,0,1,NULL,NULL);
+  ierr = tridiagLURD(a1,b1,c1,x,N,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -155,7 +155,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLURD Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr  = tridiagLURD(a1,b1,c1,x,N,0,1,NULL);
+  ierr = tridiagLURD(a1,b1,c1,x,N,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -174,7 +174,7 @@ int main_serial(int N)
   CopyArray(x ,y ,N);
   /* solve */  
   printf("TridiagLURD Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLURD(a1,b1,c1,x,N,0,1,NULL,NULL);
+  ierr = tridiagLURD(a1,b1,c1,x,N,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,N);
@@ -233,7 +233,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
+  ierr = tridiagLU(a1,b1,c1,x,nlocal,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -256,7 +256,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr  = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
+  ierr = tridiagLU(a1,b1,c1,x,nlocal,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -280,7 +280,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
+  ierr = tridiagLU(a1,b1,c1,x,nlocal,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -305,7 +305,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
+  ierr = tridiagLURD(a1,b1,c1,x,nlocal,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -328,7 +328,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr  = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
+  ierr = tridiagLURD(a1,b1,c1,x,nlocal,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -352,7 +352,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLURD(a1,b1,c1,x,nlocal,rank,nproc,NULL,&world);
+  ierr = tridiagLURD(a1,b1,c1,x,nlocal,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   /* calculate error */
   error = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
@@ -377,7 +377,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
   double runtimes[5] = {0.0,0.0,0.0,0.0,0.0};
   for (i = 0; i < NRuns; i++) {
     TridiagLUTime timing;
-    ierr = tridiagLU(a1,b1,c1,x,nlocal,rank,nproc,&timing,&world);
+    ierr = tridiagLU(a1,b1,c1,x,nlocal,&timing,&world);
     runtimes[0] += timing.total_time;
     runtimes[1] += timing.stage1_time;
     runtimes[2] += timing.stage2_time;

@@ -6,9 +6,10 @@
 #endif
 #include <tridiagLU.h>
 
-int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,void *r,void *comnctr)
+int tridiagLU(double *a,double *b,double *c,double *x,int n,void *r,void *comnctr)
 {
   int             i,istart,iend,ierr = 0;
+  int             rank,nproc;
   double          sendbuf[4],recvbuf[4];
   TridiagLUTime   *runtimes = (TridiagLUTime*) r;
   struct timeval  start,stage1,stage2,stage3,stage4;
@@ -20,6 +21,19 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,v
 
   /* start */
   gettimeofday(&start,NULL);
+
+#ifdef serial
+  rank  = 0;
+  nproc = 1;
+#else
+  if (comm) {
+    MPI_Comm_size(*comm,&nproc);
+    MPI_Comm_rank(*comm,&rank );
+  } else {
+    rank  = 0;
+    nproc = 1;
+  }
+#endif
 
   /* Stage 1 - Parallel elimination of subdiagonal entries */
   istart  = (rank == 0 ? 1 : 2);
@@ -109,7 +123,7 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,int rank,int nproc,v
 
     /* solve the system independently on all the process */
     if (nproc-1 > 1) {
-      ierr = tridiagLU(ra,rb,rc,rx,nproc-1,0,1,NULL,NULL);
+      ierr = tridiagLU(ra,rb,rc,rx,nproc-1,NULL,NULL);
       if (ierr) return(ierr);
     } else rx[0] /= rb[0];
 
