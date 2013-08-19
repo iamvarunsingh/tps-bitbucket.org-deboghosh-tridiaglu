@@ -47,6 +47,7 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,void *r,void *comn
   for (i = 0; i < n; i++) {
     double alpha,beta,s[4];
     int j;
+    if (b[i] == 0)  return(-1); /* singular system */
     alpha = b[i];
     beta  = -a[i] * (i==0 ? cpp : c[i-1]);
     s[0] = alpha*S[0] + beta*S[2];
@@ -95,7 +96,7 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,void *r,void *comn
 
   /* Forward Sweep - Combine step */
   x[n-1] = (L[0]+L[1]) / (L[2]+L[3]);
-  double xpp = 0; /* last b from previous process */
+  double xpp = 0; /* last x from previous process */
 #ifndef serial
   if (rank+1 < nproc) MPI_Isend(&x[n-1],1,MPI_DOUBLE,rank+1,2,*comm,&sndreq);
   if (rank-1 >= 0   ) MPI_Recv (&xpp   ,1,MPI_DOUBLE,rank-1,2,*comm,&rcvsts);
@@ -132,7 +133,10 @@ int tridiagLURD(double *a,double *b,double *c,double *x,int n,void *r,void *comn
   if (rank-1 >= 0   ) MPI_Isend(&x[0],1,MPI_DOUBLE,rank-1,3,*comm,&sndreq);
   if (rank+1 < nproc) MPI_Recv (&xnp ,1,MPI_DOUBLE,rank+1,3,*comm,&rcvsts);
 #endif
-  for (i = n-1; i > 0; i--) x[i] = (x[i] - c[i] * (i==(n-1) ? xnp : x[i+1])) / b[i];
+  for (i = n-1; i > 0; i--) {
+    if (b[i] == 0) return(-1); /* singular system */
+    x[i] = (x[i] - c[i] * (i==(n-1) ? xnp : x[i+1])) / b[i];
+  }
 
   /* Done! */
   return(0);
