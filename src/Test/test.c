@@ -373,18 +373,33 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
     else                  c1[i] = ((double) rand()) / ((double) RAND_MAX);
     x[i]  = ((double) rand()) / ((double) RAND_MAX);
   }
+  CopyArray(a1,a2,nlocal);
+  CopyArray(b1,b2,nlocal);
+  CopyArray(c1,c2,nlocal);
+  CopyArray(x ,y ,nlocal);
   /* solve */  
   if (!rank) printf("\nMPI test 4 (Speed test - %d Tridiagonal Solves):\n",NRuns);
   double runtimes[5] = {0.0,0.0,0.0,0.0,0.0};
+  error = 0;
   for (i = 0; i < NRuns; i++) {
     TridiagLUTime timing;
-    ierr = tridiagLU(a1,b1,c1,x,nlocal,&timing,&world);
+    CopyArray(a2,a1,nlocal);
+    CopyArray(b2,b1,nlocal);
+    CopyArray(c2,c1,nlocal);
+    CopyArray(y ,x ,nlocal);
+    ierr         = tridiagLU(a1,b1,c1,x,nlocal,&timing,&world);
+    double err   = CalculateError(a2,b2,c2,y,x,nlocal,rank,nproc);
     runtimes[0] += timing.total_time;
     runtimes[1] += timing.stage1_time;
     runtimes[2] += timing.stage2_time;
     runtimes[3] += timing.stage3_time;
     runtimes[4] += timing.stage4_time;
+    if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+    error += err;
   }
+  error /= NRuns;
+  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            total_error = error;
   MPI_Allreduce(MPI_IN_PLACE,&runtimes[0],5,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
   if (!rank) {
@@ -393,6 +408,7 @@ int main_mpi(int N,int NRuns,int rank,int nproc)
     printf("\t\tStage2 walltime = %E\n",runtimes[2]);
     printf("\t\tStage3 walltime = %E\n",runtimes[3]);
     printf("\t\tStage4 walltime = %E\n",runtimes[4]);
+    printf("\t\tAverage error   = %E\n",total_error);
     FILE *out;
     out = fopen("walltimes.dat","w");
     fprintf(out,"%5d  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
