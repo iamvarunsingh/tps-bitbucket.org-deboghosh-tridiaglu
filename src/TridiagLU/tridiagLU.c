@@ -139,25 +139,14 @@ int tridiagLU(double *a,double *b,double *c,double *x,int n,void *r,void *comnct
   }
 #else
   if (nproc > 1) {
-    /* create a new communicator for the reduced system */
-    MPI_Group   WholeSystem,ReducedSystem;
-    MPI_Comm    ReducedSystemComm;
-    MPI_Request sndreq;
-    MPI_Status  rcvsts;
-    int nproc_reduced =  nproc - 1;
-    int range[1][3]      =  {1,nproc-1,1};
-    MPI_Comm_group       (*comm,&WholeSystem);
-    MPI_Group_range_incl (WholeSystem,1,&range[0],&ReducedSystem);
-    MPI_Comm_create      (*comm,ReducedSystem,&ReducedSystemComm);
+    double zero = 0.0, one = 1.0;
     /* all process except 0 call the recursive-doubling tridiagonal solver */
-    if (rank) {
-      ierr = tridiagLURD(&a[0],&b[0],&c[0],&x[0],1,NULL,&ReducedSystemComm);
-      if (ierr) return(ierr);
-    }
-    /* destroy reduced system communicator and group */
-    if (rank) MPI_Comm_free (&ReducedSystemComm);
-    MPI_Group_free(&ReducedSystem);
+    if (rank) ierr = tridiagLURD(&a[0],&b[0],&c[0],&x[0],1,NULL,comm);
+    else      ierr = tridiagLURD(&zero,&one ,&zero,&zero,1,NULL,comm);
+    if (ierr) return(ierr);
     /* Each process, get the first x of the next process */
+    MPI_Status  rcvsts;
+    MPI_Request sndreq;
     if (rank)           MPI_Isend(&x[0],1,MPI_DOUBLE,rank-1,1323,*comm,&sndreq);
     if (rank+1 < nproc) MPI_Recv (&xp1 ,1,MPI_DOUBLE,rank+1,1323,*comm,&rcvsts);
   }
