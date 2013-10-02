@@ -41,7 +41,7 @@
                           using the recursive doubling algorithm
 
   For a serial tridiagonal solver, compile with the flag "-Dserial"
-  or call with rank = 0 and nproc = 1.
+  or send NULL as the argument for the MPI communicator.
 
 */
 

@@ -198,6 +198,11 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     if (rank)           MPI_Isend(xs1,ns,MPI_DOUBLE,rank-1,1323,*comm,&sndreq);
     if (rank+1 < nproc) MPI_Recv (xp1,ns,MPI_DOUBLE,rank+1,1323,*comm,&rcvsts);
   }
+#else
+  if (nproc > 1) {
+    fprintf(stderr,"Error: nproc > 1 for a serial run!\n");
+    return(1);
+  }
 #endif /* if not serial */
   /* end of stage 3 */
   gettimeofday(&stage3,NULL);

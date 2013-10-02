@@ -14,19 +14,15 @@ static int RecursiveDoublingReverse(int,double*,int,int,void*);
 
 int tridiagLURD(double **a,double **b,double **c,double **x,int n,int ns,void *r,void *comnctr)
 {
-  int         d,i,j,ierr;
-  int         rank,nproc;
+  int         d,i,j;
   const int   nvar = 4;
 #ifndef serial
-  MPI_Comm        *comm = (MPI_Comm*) comnctr;
-  MPI_Request     sndreq;
-  MPI_Status      rcvsts;
-#endif
+  int         ierr = 0;
+  int         rank,nproc;
+  MPI_Comm    *comm = (MPI_Comm*) comnctr;
+  MPI_Request sndreq;
+  MPI_Status  rcvsts;
 
-#ifdef serial
-  rank  = 0;
-  nproc = 1;
-#else
   if (comm) {
     MPI_Comm_size(*comm,&nproc);
     MPI_Comm_rank(*comm,&rank );
@@ -74,6 +70,7 @@ int tridiagLURD(double **a,double **b,double **c,double **x,int n,int ns,void *r
   /* Full Recursive Doubling (Forward) */
 #ifndef serial
   ierr = RecursiveDoublingForward(ns,S,rank,nproc,comm);
+  if (ierr) return(ierr);
 #endif
 
   /* Combine step */
@@ -113,6 +110,7 @@ int tridiagLURD(double **a,double **b,double **c,double **x,int n,int ns,void *r
   /* Forward Sweep - Full Recursive Doubling (Forward) */
 #ifndef serial
   ierr = RecursiveDoublingForward(ns,L,rank,nproc,comm);
+  if (ierr) return(ierr);
 #endif
 
   /* Forward Sweep - Combine step */
@@ -152,6 +150,7 @@ int tridiagLURD(double **a,double **b,double **c,double **x,int n,int ns,void *r
   /* Backward Sweep - Full recursive doubling in reverse */
 #ifndef serial
   ierr = RecursiveDoublingReverse(ns,U,rank,nproc,comm);
+  if (ierr) return(ierr);
 #endif
 
   /* Backward Sweep - Combine step */

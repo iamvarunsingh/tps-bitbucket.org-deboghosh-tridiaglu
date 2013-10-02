@@ -1,4 +1,122 @@
-Parallel (MPI) direct solver for a tridiagonal system of equations
+PARALLEL (MPI) DIRECT SOLVER FOR A TRIDIAGONAL SYSTEM OF EQUATIONS
 
-To compile without MPI, use "-Dserial" flag.
+The following functions are available in src/TridiagLU (/include as the 
+required header file):-
+
+  tridiagLU  (a,b,c,x,n,ns,r,comm) (Parallel tridiagonal solver)
+  tridiagLURD(a,b,c,x,n,ns,r,comm) (Parallel tridiagonal solver
+                                    based on the recursive-doubling 
+                                    algorithm)
+** Note: the recursive-doubling algorithm is unstable for large 
+         system sizes
+
+** A test code is provided in /src/Test to check the tridiagonal
+   solvers and test the walltimes.
+
+------------------------------------------------------------------------
+
+REFERENCES:-
+
+tridiagLU() solves the parallel tridiagonal system by rearranging the 
+equations such that the last points of each sub-domain are grouped at
+the end. See doc/algorithm.pdf for a rough sketch.
+
+tridiagLURD() uses the "recursive doubling" technique. Refer to:
+Eric F. Van de Velde, "Concurrent Scientific Computing", Springer-
+Verlag
+
+There are some scalability plots in doc/. These were obtained on the
+Fusion cluster at Argonne National Laboratory 
+(http://www.lcrc.anl.gov/fusion/)
+
+------------------------------------------------------------------------
+
+COMPILING:-
+
+If obtained by cloning the GIT/SVN repository, run these commands:-
+> autoreconf -i
+
+This will generate the required files for:
+> [CFLAGS="..."] ./configure [--with-mpidir=/path/to/mpi] [--prefix=/install/dir]
+> make
+> make install
+
+If unpacked from tarball, then proceed with ./configure, make and
+make install.
+
+The tridiagonal solver functions need to be compiled with one of
+the following flags:
+
+-Dserial              : Serial version
+-Dgather_and_solve    : tridiagLU() solves the reduced system
+                        by gathering it on one process, solving
+                        it and scattering the results
+-Drecursive_doubling  : tridiagLU() solves the reduced system
+                        by calling the recursive-doubling algo-
+                        rithm, tridiagLURD().
+
+** One of these flags *HAVE* to be specified.
+** The last two flags do not affect tridiagLURD()
+
+------------------------------------------------------------------------
+
+RUNNING:-
+
+The tridiagonal solvers can be tested by running bin/TRIDIAGLU.
+
+USING THESE FUNCTIONS:-
+
+Copy the header file include/tridiagLU.h to the include folder of
+the code calling these functions. Copy the files 
+src/TridiagLU/tridiagLU.c
+src/TridiagLU/tridiagLURD.c
+to the the code's src directory and include them while compiling.
+
+*OR*
+
+Place include/tridiagLU.h where the compiler can find it
+(or use the compiler flag "-I/path/to/tridiagLU.h" while
+compiling) and include $build_dir/src/TridiagLU/libTridiagLU.a 
+while linking.
+
+------------------------------------------------------------------------
+
+FUNCTION ARGUMENTS:
+
+    a   [0,ns-1]x[0,n-1] double**         subdiagonal entries
+    b   [0,ns-1]x[0,n-1] double**         diagonal entries
+    c   [0,ns-1]x[0,n-1] double**         superdiagonal entries
+    x   [0,ns-1]x[0,n-1] double**         right-hand side (solution)
+    n                    int              local size of the system
+    ns                   int              number of systems to solve
+    r                    TridiagLUTime*   structure containing the runtimes
+                                            total_time
+                                            stage1_time
+                                            stage2_time
+                                            stage3_time
+                                            stage4_time
+                        ** Note that these are process-specific. Calling 
+                           function needs to do something to add/average 
+                           them to get some global value.
+                        ** Can be NULL if runtimes are not needed.
+    comm                MPI_COMM*         MPI Communicator (NULL for serial)
+
+  Return value (int) -> 0 (successful solve), -1 (singular system)
+
+  Note:-
+    x contains the final solution (right-hand side is replaced)
+    a,b,c are not preserved
+    On rank=0,        a[0] has to be zero.
+    On rank=nproc-1,  c[n-1] has to be zero.
+
+  ** Compile with either of the following flags:
+  "-Dgather_and_solve"  : Reduced systems are gathered on one processor 
+                          and solved
+  "-Drecursive_doubling": Reduced systems are solved on all processors 
+                          using the recursive doubling algorithm
+
+  For a serial tridiagonal solver, compile with the flag "-Dserial"
+  or send NULL as the argument for the MPI communicator.
+
+------------------------------------------------------------------------
 
