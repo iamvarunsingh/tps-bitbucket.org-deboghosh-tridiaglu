@@ -1,4 +1,2 @@
-Parallel (MPI) direct solver for a tridiagonal system of equations
-
-To compile without MPI, use "-Dserial" flag.
+Parallel (MPI) direct solver for a tridiagonal system of equations: Contains the functions for solving a non-periodic tridiagonal system of equations in parallel (LU decomposition). The system is solved by rearranging the points: grouping the last point of each sub-domain at the end. The reduced system is solved by either the recursive-doubling or gather-and-solve techniques. A test code is provided to check test these functions and their walltimes. See README for more details.
 
