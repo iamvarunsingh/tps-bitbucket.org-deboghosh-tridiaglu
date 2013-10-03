@@ -1,6 +1,5 @@
 #include <time.h>
 #include <sys/time.h>
-#include <stdio.h>
 #include <stdlib.h>
 #ifndef serial
 #include <mpi.h>
@@ -118,63 +117,119 @@ int tridiagLU(double **a,double **b,double **c,double **x,
   /* Stage 3 - Solve the reduced (nproc-1) X (nproc-1) tridiagonal system   */
   if (nproc > 1) {
 #if defined(gather_and_solve)
-    /* Gathering reduced systems and solving                  */
+    int dstart, proc;
+    /* Gathering reduced systems and solving                      */
+    /* For number of systems ns > 1, each process will solve      */
+    /* a bunch of reduced systems                                 */
+
+    /* on all processes, calculate the number of systems each     */
+    /* process has to solve                                       */
+    int *ns_local = (int*) calloc (nproc,sizeof(int));
+    for (proc=0; proc<nproc; proc++)    ns_local[proc] = ns / nproc; 
+    for (proc=0; proc<ns%nproc; proc++) ns_local[proc]++;
+
     /* allocate the arrays for the reduced tridiagonal system */
-//    double **ra,**rb,**rc,**rx; 
-//    ra = (double**) calloc (ns_local,sizeof(double));
-//    rb = (double**) calloc (ns_local,sizeof(double));
-//    rc = (double**) calloc (ns_local,sizeof(double));
-//    rx = (double**) calloc (ns_local,sizeof(double));
-//    for (d = 0; d < ns_local; d++) {
-//      ra[d] = (double*) calloc (nproc, sizeof(double));
-//      rb[d] = (double*) calloc (nproc, sizeof(double));
-//      rc[d] = (double*) calloc (nproc, sizeof(double));
-//      rx[d] = (double*) calloc (nproc, sizeof(double));
-//      for (i = 0; i < nproc; i++) 
-//        ra[d][i] = rb[d][i] = rc[d][i] = rx[d][i] = 0.0;
-//    }
+    double **ra,**rb,**rc,**rx; 
+    if (ns_local[rank] > 0) {
+      ra = (double**) calloc (ns_local[rank],sizeof(double));
+      rb = (double**) calloc (ns_local[rank],sizeof(double));
+      rc = (double**) calloc (ns_local[rank],sizeof(double));
+      rx = (double**) calloc (ns_local[rank],sizeof(double));
+      for (d = 0; d < ns_local[rank]; d++) {
+        ra[d] = (double*) calloc (nproc, sizeof(double));
+        rb[d] = (double*) calloc (nproc, sizeof(double));
+        rc[d] = (double*) calloc (nproc, sizeof(double));
+        rx[d] = (double*) calloc (nproc, sizeof(double));
+        for (i = 0; i < nproc; i++) 
+          ra[d][i] = rb[d][i] = rc[d][i] = rx[d][i] = 0.0;
+      }
+    }
 
-    /* allocate send and receive buffers and form the send packet of data */
-//    sendbuf = (double*) calloc (nvar,sizeof(double));
-//    if (!rank) recvbuf = (double*) calloc (nvar*nproc,sizeof(double));
-//    sendbuf[0] = (rank ? a[0] : 0.0);
-//    sendbuf[1] = (rank ? b[0] : 1.0);
-//    sendbuf[2] = (rank ? c[0] : 0.0);
-//    sendbuf[3] = (rank ? x[0] : 0.0);
+    /* Gather the reduced systems on each process */
+    /* allocate receive buffer */
+    if (ns_local[rank] > 0) 
+      recvbuf = (double*) calloc (ns_local[rank]*nvar*nproc,sizeof(double));
+    else recvbuf = NULL;
+    dstart = 0;
+    for (proc = 0; proc < nproc; proc++) {
+      if (ns_local[proc] > 0) {
+        /* allocate send buffer and form the send packet of data */
+        sendbuf = (double*) calloc (nvar*ns_local[proc],sizeof(double));
+        for (d = 0; d < ns_local[proc]; d++) {
+          sendbuf[nvar*d+0] = (rank ? a[d+dstart][0] : 0.0);
+          sendbuf[nvar*d+1] = (rank ? b[d+dstart][0] : 1.0);
+          sendbuf[nvar*d+2] = (rank ? c[d+dstart][0] : 0.0);
+          sendbuf[nvar*d+3] = (rank ? x[d+dstart][0] : 0.0);
+        }
+        dstart += ns_local[proc];
 
-    /* gather the reduced system on root process */
-//    MPI_Gather(sendbuf,nvar,MPI_DOUBLE,recvbuf,nvar,MPI_DOUBLE,0,*comm);
+        /* gather these reduced systems on process with rank = proc */
+        MPI_Gather(sendbuf,nvar*ns_local[proc],MPI_DOUBLE,
+                   recvbuf,nvar*ns_local[proc],MPI_DOUBLE,
+                   proc,*comm);
 
+        /* deallocate send buffer */
+        free(sendbuf);
+      }
+    }
     /* extract the data from the recvbuf and solve */
-//    for (d = 0; d < ns_local; d++) {
-//      for (i = 0; i < nproc; i++) {
-//        ra[d][i] = recvbuf[d][nvar*i+0];
-//        rb[d][i] = recvbuf[d][nvar*i+1];
-//        rc[d][i] = recvbuf[d][nvar*i+2];
-//        rx[d][i] = recvbuf[d][nvar*i+3];
-//      }
-//    }
-//    ierr = tridiagLU(ns_local,ra,rb,rc,rx,nproc,NULL,NULL);
-//    if (ierr) return(ierr);
+    for (d = 0; d < ns_local[rank]; d++) {
+      for (i = 0; i < nproc; i++) {
+        ra[d][i] = recvbuf[i*nvar*ns_local[rank]+d*nvar+0];
+        rb[d][i] = recvbuf[i*nvar*ns_local[rank]+d*nvar+1];
+        rc[d][i] = recvbuf[i*nvar*ns_local[rank]+d*nvar+2];
+        rx[d][i] = recvbuf[i*nvar*ns_local[rank]+d*nvar+3];
+      }
+    }
+    /* deallocate receive buffer */
+    if (recvbuf)  free(recvbuf);
 
-    /* scatter the solution back */
-//    double x0;
-//    MPI_Scatter(rx,1,MPI_DOUBLE,&x0,1,MPI_DOUBLE,0,*comm);
-//    if (rank) x[0] = x0;
+    /* solve the reduced systems */
+    ierr = tridiagLU(ra,rb,rc,rx,nproc,ns_local[rank],NULL,NULL);
+    if (ierr) return(ierr);
+
+    /* allocate send buffer and save the data to send */
+    if (ns_local[rank] > 0)
+      sendbuf = (double*) calloc (ns_local[rank]*nproc,sizeof(double));
+    else sendbuf = NULL;
+    for (i = 0; i < nproc; i++) {
+      for (d = 0; d < ns_local[rank]; d++) {
+        sendbuf[i*ns_local[rank]+d] = rx[d][i];
+      }
+    }
+    dstart = 0;
+    for (proc = 0; proc < nproc; proc++) {
+      if (ns_local[proc] > 0) {
+        /* allocate receive buffer */
+        recvbuf = (double*) calloc (ns_local[proc], sizeof(double));
+        /* scatter the solution back */
+        MPI_Scatter(sendbuf,ns_local[proc],MPI_DOUBLE,
+                    recvbuf,ns_local[proc],MPI_DOUBLE,
+                    proc,*comm);
+        /* save the solution on all except root process */
+        if (rank) 
+          for (d=0; d<ns_local[proc]; d++) x[d+dstart][0] = recvbuf[d];
+        dstart += ns_local[proc];
+        /* deallocate receive buffer */
+        free(recvbuf);
+      }
+    }
+    /* deallocate send buffer */
+    if (sendbuf) free(sendbuf);
 
     /* clean up */
-//    if (ns_local > 0) {
-//      for (d = 0; d < ns_local; d++) {
-//        free(ra[d]);
-//        free(rb[d]);
-//        free(rc[d]);
-//        free(rx[d]);
-//      }
-//      free(ra);
-//      free(rb);
-//      free(rc);
-//      free(rd);
-//    }
+    if (ns_local[rank] > 0) {
+      for (d = 0; d < ns_local[rank]; d++) {
+        free(ra[d]);
+        free(rb[d]);
+        free(rc[d]);
+        free(rx[d]);
+      }
+      free(ra);
+      free(rb);
+      free(rc);
+      free(rx);
+    }
 #elif defined(recursive_doubling)
     /* Solving the reduced system in parallel by recursive-doubling algorithm */
     double **zero, **one;
