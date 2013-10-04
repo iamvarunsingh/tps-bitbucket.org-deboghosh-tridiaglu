@@ -153,7 +153,7 @@ tridiagonal solver. In this case, one can let proc be an array such that
 
   proc[rank] = rank
 
-*OR* it can also be set to NULL.
+** It cannot be NULL.
 
 However, consider a 2D problem with the grid split in both dimensions and 
 processes arranged as follows:

@@ -18,7 +18,6 @@ int tridiagLU(double **a,double **b,double **c,double **x,
   MPIContext      *mpi = (MPIContext*) m;
   int             ierr = 0;
   const int       nvar = 4;
-  int             proc_flag = 0;
   int             *proc;
   double          *sendbuf,*recvbuf;
   MPI_Comm        *comm;
@@ -39,11 +38,10 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     comm  = (MPI_Comm*) mpi->comm;
     proc  = mpi->proc;
     if (!proc) {
-      proc = (int*) calloc (nproc,sizeof(int));
-      for (d=0; d<nproc; d++) proc[d] = d;
-      mpi->proc = proc;
-      proc_flag = 1;
-    } else proc_flag = 0;
+      fprintf(stderr,"Error in tridiagLU() on process %d: ",rank);
+      fprintf(stderr,"aray \"proc\" is NULL.\n");
+      return(-1);
+    }
   } else {
     rank  = 0;
     nproc = 1;
@@ -245,6 +243,7 @@ int tridiagLU(double **a,double **b,double **c,double **x,
       free(rc);
       free(rx);
     }
+    free(ns_local);
 #elif defined(recursive_doubling)
     /* Solving the reduced system in parallel by recursive-doubling algorithm */
     double **zero, **one;
@@ -310,8 +309,5 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     walltime = ((stage4.tv_sec * 1000000 + stage4.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec));
     runtimes->total_time = (double) walltime / 1000000.0;
   }
-#ifndef serial
-  if (proc_flag && mpi) { free(proc); mpi->proc = NULL; }
-#endif
   return(0);
 }

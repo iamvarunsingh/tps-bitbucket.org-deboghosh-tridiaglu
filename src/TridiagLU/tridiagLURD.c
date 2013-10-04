@@ -20,7 +20,6 @@ int tridiagLURD(double **a,double **b,double **c,double **x,int n,int ns,void *r
   MPIContext  *mpi      = (MPIContext*)    m;
   int         ierr = 0;
   int         rank,nproc;
-  int         proc_flag = 0;
   int         *proc;
   MPI_Comm    *comm;
   MPI_Request sndreq;
@@ -32,11 +31,10 @@ int tridiagLURD(double **a,double **b,double **c,double **x,int n,int ns,void *r
     comm  = (MPI_Comm*) mpi->comm;
     proc  = mpi->proc;
     if (!proc) {
-      proc = (int*) calloc (nproc,sizeof(int));
-      for (d=0; d<nproc; d++) proc[d] = d;
-      mpi->proc = proc;
-      proc_flag = 1;
-    } else proc_flag = 0;
+      fprintf(stderr,"Error in tridiagLU() on process %d: ",rank);
+      fprintf(stderr,"aray \"proc\" is NULL.\n");
+      return(-1);
+    }
   } else {
     rank  = 0;
     nproc = 1;
@@ -188,9 +186,6 @@ int tridiagLURD(double **a,double **b,double **c,double **x,int n,int ns,void *r
   free(cmm); free(cpp);
   free(xmm); free(xpp);
   free(xmp); free(xnp);
-#ifndef serial
-  if (proc_flag && mpi) { free(proc); mpi->proc = NULL; }
-#endif
   return(0);
 }
 
