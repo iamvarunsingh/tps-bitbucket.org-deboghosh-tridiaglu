@@ -2,10 +2,10 @@
 
   Parallel direct solver for tridiagonal systems 
 
-  tridiagLU  (a,b,c,x,n,ns,r,comm) (Parallel tridiagonal solver)
-  tridiagLURD(a,b,c,x,n,ns,r,comm) (Parallel tridiagonal solver
-                                    based on the recursive-
-                                    doubling algorithm)
+  tridiagLU  (a,b,c,x,n,ns,r,m) (Parallel tridiagonal solver)
+  tridiagLURD(a,b,c,x,n,ns,r,m) (Parallel tridiagonal solver
+                                 based on the recursive-
+                                 doubling algorithm)
 
   Arguments:-
     a   [0,ns-1]x[0,n-1] double**         subdiagonal entries
@@ -24,7 +24,9 @@
                            function needs to do something to add/average 
                            them to get some global value.
                         ** Can be NULL if runtimes are not needed.
-    comm                MPI_COMM*         MPI Communicator (NULL for serial)
+    m                   MPIContext*       structure containing the MPI
+                                          context
+                                          **See below
 
   Return value (int) -> 0 (successful solve), -1 (singular system)
 
@@ -45,6 +47,8 @@
 
 */
 
+
+/* Data structure containing the stage runtimes */
 typedef struct _tridiagLUruntimes_ {
   double  total_time;
   double  stage1_time;
@@ -52,6 +56,25 @@ typedef struct _tridiagLUruntimes_ {
   double  stage3_time;
   double  stage4_time;
 } TridiagLUTime;
+
+
+/* 
+  Data structure for the MPI context
+
+  rank      rank of this process with respect to the processes parti-
+            cipating in the tridiagonal solve
+  nproc     number of processes participating in the tridiagonal solve
+  comm      MPI communicator
+  proc      an array of size nproc containing the actual rank in comm
+            for each rank 0,...,nproc
+*/
+
+typedef struct _mpi_context_ {
+  int   rank;
+  int   nproc;
+  void* comm;
+  int*  proc;
+} MPIContext;
 
 int tridiagLU  (double**,double**,double**,double**,int,int,void*,void*);
 int tridiagLURD(double**,double**,double**,double**,int,int,void*,void*);

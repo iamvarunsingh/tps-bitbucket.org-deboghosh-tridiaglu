@@ -1,23 +1,27 @@
 #include <time.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <stdio.h>
 #ifndef serial
 #include <mpi.h>
 #endif
 #include <tridiagLU.h>
 
 int tridiagLU(double **a,double **b,double **c,double **x,
-              int n,int ns,void *r,void *comnctr)
+              int n,int ns,void *r,void *m)
 {
+  TridiagLUTime   *runtimes = (TridiagLUTime*) r;
   int             d,i,istart,iend;
   int             rank,nproc;
-  TridiagLUTime   *runtimes = (TridiagLUTime*) r;
   struct timeval  start,stage1,stage2,stage3,stage4;
 #ifndef serial
+  MPIContext      *mpi = (MPIContext*) m;
   int             ierr = 0;
   const int       nvar = 4;
+  int             proc_flag = 0;
+  int             *proc;
   double          *sendbuf,*recvbuf;
-  MPI_Comm        *comm = (MPI_Comm*) comnctr;
+  MPI_Comm        *comm;
   MPI_Request     *request;
   MPI_Status      *status;
 #endif
@@ -29,14 +33,25 @@ int tridiagLU(double **a,double **b,double **c,double **x,
   rank  = 0;
   nproc = 1;
 #else
-  if (comm) {
-    MPI_Comm_size(*comm,&nproc);
-    MPI_Comm_rank(*comm,&rank );
+  if (mpi) {
+    rank  = mpi->rank;
+    nproc = mpi->nproc;
+    comm  = (MPI_Comm*) mpi->comm;
+    proc  = mpi->proc;
+    if (!proc) {
+      proc = (int*) calloc (nproc,sizeof(int));
+      for (d=0; d<nproc; d++) proc[d] = d;
+      mpi->proc = proc;
+      proc_flag = 1;
+    } else proc_flag = 0;
   } else {
     rank  = 0;
     nproc = 1;
+    comm  = NULL;
+    proc  = NULL;
   }
 #endif
+
 
   if ((ns == 0) || (n == 0)) return(0);
   /* some allocations */
@@ -81,9 +96,9 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     int nreq = ((rank == 0 || rank == nproc-1) ? 1 : 2);
     request  = (MPI_Request*) calloc (nreq,sizeof(MPI_Request));
     status   = (MPI_Status*)  calloc (nreq,sizeof(MPI_Status));
-    if (rank != nproc-1)  MPI_Isend(sendbuf,nvar*ns,MPI_DOUBLE,rank+1,1436,*comm,&request[0]);
-    if (rank == nproc-1 ) MPI_Irecv(recvbuf,nvar*ns,MPI_DOUBLE,rank-1,1436,*comm,&request[0]);
-    else if (rank)        MPI_Irecv(recvbuf,nvar*ns,MPI_DOUBLE,rank-1,1436,*comm,&request[1]);
+    if (rank != nproc-1)  MPI_Isend(sendbuf,nvar*ns,MPI_DOUBLE,proc[rank+1],1436,*comm,&request[0]);
+    if (rank == nproc-1 ) MPI_Irecv(recvbuf,nvar*ns,MPI_DOUBLE,proc[rank-1],1436,*comm,&request[0]);
+    else if (rank)        MPI_Irecv(recvbuf,nvar*ns,MPI_DOUBLE,proc[rank-1],1436,*comm,&request[1]);
     MPI_Waitall(nreq,&request[0],&status[0]);
     free(request);
     free(status);
@@ -117,7 +132,7 @@ int tridiagLU(double **a,double **b,double **c,double **x,
   /* Stage 3 - Solve the reduced (nproc-1) X (nproc-1) tridiagonal system   */
   if (nproc > 1) {
 #if defined(gather_and_solve)
-    int dstart, proc;
+    int dstart, p;
     /* Gathering reduced systems and solving                      */
     /* For number of systems ns > 1, each process will solve      */
     /* a bunch of reduced systems                                 */
@@ -125,8 +140,8 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     /* on all processes, calculate the number of systems each     */
     /* process has to solve                                       */
     int *ns_local = (int*) calloc (nproc,sizeof(int));
-    for (proc=0; proc<nproc; proc++)    ns_local[proc] = ns / nproc; 
-    for (proc=0; proc<ns%nproc; proc++) ns_local[proc]++;
+    for (p=0; p<nproc; p++)    ns_local[p] = ns / nproc; 
+    for (p=0; p<ns%nproc; p++) ns_local[p]++;
 
     /* allocate the arrays for the reduced tridiagonal system */
     double **ra,**rb,**rc,**rx; 
@@ -151,22 +166,22 @@ int tridiagLU(double **a,double **b,double **c,double **x,
       recvbuf = (double*) calloc (ns_local[rank]*nvar*nproc,sizeof(double));
     else recvbuf = NULL;
     dstart = 0;
-    for (proc = 0; proc < nproc; proc++) {
-      if (ns_local[proc] > 0) {
+    for (p = 0; p < nproc; p++) {
+      if (ns_local[p] > 0) {
         /* allocate send buffer and form the send packet of data */
-        sendbuf = (double*) calloc (nvar*ns_local[proc],sizeof(double));
-        for (d = 0; d < ns_local[proc]; d++) {
+        sendbuf = (double*) calloc (nvar*ns_local[p],sizeof(double));
+        for (d = 0; d < ns_local[p]; d++) {
           sendbuf[nvar*d+0] = (rank ? a[d+dstart][0] : 0.0);
           sendbuf[nvar*d+1] = (rank ? b[d+dstart][0] : 1.0);
           sendbuf[nvar*d+2] = (rank ? c[d+dstart][0] : 0.0);
           sendbuf[nvar*d+3] = (rank ? x[d+dstart][0] : 0.0);
         }
-        dstart += ns_local[proc];
+        dstart += ns_local[p];
 
-        /* gather these reduced systems on process with rank = proc */
-        MPI_Gather(sendbuf,nvar*ns_local[proc],MPI_DOUBLE,
-                   recvbuf,nvar*ns_local[proc],MPI_DOUBLE,
-                   proc,*comm);
+        /* gather these reduced systems on process with rank = p */
+        MPI_Gather(sendbuf,nvar*ns_local[p],MPI_DOUBLE,
+                   recvbuf,nvar*ns_local[p],MPI_DOUBLE,
+                   proc[p],*comm);
 
         /* deallocate send buffer */
         free(sendbuf);
@@ -198,18 +213,18 @@ int tridiagLU(double **a,double **b,double **c,double **x,
       }
     }
     dstart = 0;
-    for (proc = 0; proc < nproc; proc++) {
-      if (ns_local[proc] > 0) {
+    for (p = 0; p < nproc; p++) {
+      if (ns_local[p] > 0) {
         /* allocate receive buffer */
-        recvbuf = (double*) calloc (ns_local[proc], sizeof(double));
+        recvbuf = (double*) calloc (ns_local[p], sizeof(double));
         /* scatter the solution back */
-        MPI_Scatter(sendbuf,ns_local[proc],MPI_DOUBLE,
-                    recvbuf,ns_local[proc],MPI_DOUBLE,
-                    proc,*comm);
+        MPI_Scatter(sendbuf,ns_local[p],MPI_DOUBLE,
+                    recvbuf,ns_local[p],MPI_DOUBLE,
+                    proc[p],*comm);
         /* save the solution on all except root process */
         if (rank) 
-          for (d=0; d<ns_local[proc]; d++) x[d+dstart][0] = recvbuf[d];
-        dstart += ns_local[proc];
+          for (d=0; d<ns_local[p]; d++) x[d+dstart][0] = recvbuf[d];
+        dstart += ns_local[p];
         /* deallocate receive buffer */
         free(recvbuf);
       }
@@ -239,8 +254,8 @@ int tridiagLU(double **a,double **b,double **c,double **x,
       zero[d] = (double* ) calloc (1,sizeof(double )); zero[d][0] = 0.0;
       one [d] = (double* ) calloc (1,sizeof(double )); one [d][0] = 1.0;
     }
-    if (rank) ierr = tridiagLURD(a,b,c,x,1,ns,NULL,comm);
-    else      ierr = tridiagLURD(zero,one,zero,zero,1,ns,NULL,comm);
+    if (rank) ierr = tridiagLURD(a,b,c,x,1,ns,NULL,mpi);
+    else      ierr = tridiagLURD(zero,one,zero,zero,1,ns,NULL,mpi);
     if (ierr) return(ierr);
     for (d=0; d<ns; d++) free(zero[d]); free(zero);
     for (d=0; d<ns; d++) free(one [d]); free(one );
@@ -250,8 +265,8 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     MPI_Status  rcvsts;
     MPI_Request sndreq;
     for (d=0; d<ns; d++)  xs1[d] = x[d][0];
-    if (rank)           MPI_Isend(xs1,ns,MPI_DOUBLE,rank-1,1323,*comm,&sndreq);
-    if (rank+1 < nproc) MPI_Recv (xp1,ns,MPI_DOUBLE,rank+1,1323,*comm,&rcvsts);
+    if (rank)           MPI_Isend(xs1,ns,MPI_DOUBLE,proc[rank-1],1323,*comm,&sndreq);
+    if (rank+1 < nproc) MPI_Recv (xp1,ns,MPI_DOUBLE,proc[rank+1],1323,*comm,&rcvsts);
   }
 #else
   if (nproc > 1) {
@@ -295,6 +310,8 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     walltime = ((stage4.tv_sec * 1000000 + stage4.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec));
     runtimes->total_time = (double) walltime / 1000000.0;
   }
-
+#ifndef serial
+  if (proc_flag && mpi) { free(proc); mpi->proc = NULL; }
+#endif
   return(0);
 }
