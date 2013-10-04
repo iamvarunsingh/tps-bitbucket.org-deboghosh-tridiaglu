@@ -25,7 +25,9 @@ int main(int argc, char *argv[])
 
   /* If compiled in serial, run the serial tests                   */
   /* read in size of system, number of system and number of solves */
-  scanf ("%d %d %d",&N,&Ns,&NRuns);
+  FILE *in; in=fopen("input","r");
+  fscanf (in,"%d %d %d",&N,&Ns,&NRuns);
+  fclose(in);
   /* call the test function */
   ierr = main_serial(N,Ns);
   if (ierr) fprintf(stderr,"main_mpi() returned with an error code of %d.\n",ierr);
@@ -40,7 +42,11 @@ int main(int argc, char *argv[])
   
   /* read in size of system, number of system and number of solves */
   
-  if (!rank) scanf ("%d %d %d",&N,&Ns,&NRuns);
+  if (!rank) {
+    FILE *in; in=fopen("input","r");
+    fscanf (in,"%d %d %d",&N,&Ns,&NRuns);
+    fclose(in);
+  }
   /* Broadcast the input values to all the processes */
   MPI_Bcast(&N ,1,MPI_INT,0,MPI_COMM_WORLD);
   MPI_Bcast(&Ns,1,MPI_INT,0,MPI_COMM_WORLD);
