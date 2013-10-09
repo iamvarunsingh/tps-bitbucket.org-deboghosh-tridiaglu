@@ -10,9 +10,11 @@
 static void   CopyArray       (double**,double**,int,int);
 #ifdef serial
 static int    main_serial     (int,int);
+static int    test_serial     (int,int,int(*)(double**,double**,double**,double**,int,int,void*,void*));
 static double CalculateError  (double**,double**,double**,double**,double**,int,int);
 #else
 static int    main_mpi        (int,int,int,int,int);
+static int    test_mpi        (int,int,int,int,int,int,int(*)(double**,double**,double**,double**,int,int,void*,void*));
 static int    partition1D     (int,int,int,int*);
 static double CalculateError  (double**,double**,double**,double**,double**,int,int,int,int);
 #endif
@@ -64,10 +66,28 @@ int main(int argc, char *argv[])
 #ifdef serial
 
 /* 
-    THIS FUNCTION TESTS THE SERIAL IMPLEMENTATION OF THE 
-    TRIDIAGONAL SOLVERS 
+  THIS FUNCTION CALLS THE TEST FUNCTION FOR THE DIFFERENT 
+  TRIDIAGONAL SOLVERS
 */
 int main_serial(int N,int Ns)
+{
+  int ierr = 0;
+
+  printf("Testing serial tridiagLURD() with N=%d, Ns=%d\n",N,Ns);
+  ierr = test_serial(N,Ns,&tridiagLURD); if(ierr) return(ierr);
+
+  printf("Testing serial tridiagLU() with N=%d, Ns=%d\n",N,Ns);
+  ierr = test_serial(N,Ns,&tridiagLU); if(ierr) return(ierr);
+
+  /* Return */
+  return(0);
+}
+
+/* 
+    THIS FUNCTION TESTS THE SERIAL IMPLEMENTATION OF A
+    TRIDIAGONAL SOLVER
+*/
+int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**,int,int,void*,void*))
 {
   /* Variable declarations */
   double **a1;    /* sub-diagonal                               */
@@ -112,11 +132,6 @@ int main_serial(int N,int Ns)
     y[d]  = (double*) calloc (N,sizeof(double));
   }
 
-  /*
-      TESTING TRIDIAGLU()
-  */
-  printf("Testing serial tridiagLU() with N=%d, Ns=%d\n",N,Ns);
-
   /* 
     TEST 1: Solution of an identity matrix with random
             right hand side
@@ -146,7 +161,7 @@ int main_serial(int N,int Ns)
   
   /* Solve */  
   printf("TridiagLU Serial test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLU(a1,b1,c1,x,N,Ns,NULL,NULL);
+  ierr = LUSolver(a1,b1,c1,x,N,Ns,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
 
   /*
@@ -183,7 +198,7 @@ int main_serial(int N,int Ns)
 
   /* Solve */  
   printf("TridiagLU Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr = tridiagLU(a1,b1,c1,x,N,Ns,NULL,NULL);
+  ierr = LUSolver(a1,b1,c1,x,N,Ns,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
 
   /*
@@ -221,7 +236,7 @@ int main_serial(int N,int Ns)
 
   /* Solve */  
   printf("TridiagLU Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLU(a1,b1,c1,x,N,Ns,NULL,NULL);
+  ierr = LUSolver(a1,b1,c1,x,N,Ns,NULL,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
 
   /*
@@ -229,133 +244,6 @@ int main_serial(int N,int Ns)
   */
   error = CalculateError(a2,b2,c2,y,x,N,Ns);
   printf("error=%E\n",error);
-
-  /*
-      DONE TESTING TRIDIAGLU()
-  */
-
-
-  /*
-      TESTING TRIDIAGLURD() - Recursive-Doubling Algorithm
-  */
-  printf("Testing serial tridiagLURD() with N=%d, Ns=%d\n",N,Ns);
-
-  /* 
-    TEST 1: Solution of an identity matrix with random
-            right hand side
-            [I]x = b => x = b 
-  */
-
-  /* 
-    Set the values of the matrix elements and the 
-    right hand side
-  */
-  for (d = 0; d < Ns; d++) {
-    for (i = 0; i < N; i++) {
-      a1[d][i] = 0.0;
-      b1[d][i] = 1.0;
-      c1[d][i] = 0.0;
-      x [d][i] = rand();
-    }
-  }
-
-  /*
-    Copy the original values to calculate error later
-  */
-  CopyArray(a1,a2,N,Ns);
-  CopyArray(b1,b2,N,Ns);
-  CopyArray(c1,c2,N,Ns);
-  CopyArray(x ,y ,N,Ns);
-  
-  /* Solve */  
-  printf("TridiagLURD Serial test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLURD(a1,b1,c1,x,N,Ns,NULL,NULL);
-  if (ierr == -1) printf("Error - system is singular\t");
-
-  /*
-    Calculate Error
-  */
-  error = CalculateError(a2,b2,c2,y,x,N,Ns);
-  printf("error=%E\n",error);
-
-  /* 
-    TEST 2: Solution of an upper triangular matrix 
-            [U]x = b  
-  */
-
-  /* 
-    Set the values of the matrix elements and the 
-    right hand side
-  */
-  for (d = 0; d < Ns; d++) {
-    for (i = 0; i < N; i++) {
-      a1[d][i] = 0.0;
-      b1[d][i] = 2.0;
-      c1[d][i] = (i == N-1 ? 0 : 0.5);
-      x [d][i] = 1.0;
-    }
-  }
-
-  /*
-    Copy the original values to calculate error later
-  */
-  CopyArray(a1,a2,N,Ns);
-  CopyArray(b1,b2,N,Ns);
-  CopyArray(c1,c2,N,Ns);
-  CopyArray(x ,y ,N,Ns);
-
-  /* Solve */  
-  printf("TridiagLURD Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr = tridiagLURD(a1,b1,c1,x,N,Ns,NULL,NULL);
-  if (ierr == -1) printf("Error - system is singular\t");
-
-  /*
-    Calculate Error
-  */
-  error = CalculateError(a2,b2,c2,y,x,N,Ns);
-  printf("error=%E\n",error);
-
-  /* 
-    TEST 3: Solution of a tridiagonal matrix with random
-            entries and right hand side
-            [A]x = b => x = b 
-  */
-
-  /* 
-    Set the values of the matrix elements and the 
-    right hand side
-  */
-  for (d = 0; d < Ns; d++) {
-    for (i = 0; i < N; i++) {
-      a1[d][i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
-      b1[d][i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
-      c1[d][i] = (i == N-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
-      x [d][i] = ((double) rand()) / ((double) RAND_MAX);
-    }
-  }
-
-  /*
-    Copy the original values to calculate error later
-  */
-  CopyArray(a1,a2,N,Ns);
-  CopyArray(b1,b2,N,Ns);
-  CopyArray(c1,c2,N,Ns);
-  CopyArray(x ,y ,N,Ns);
-
-  /* Solve */  
-  printf("TridiagLURD Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLURD(a1,b1,c1,x,N,Ns,NULL,NULL);
-  if (ierr == -1) printf("Error - system is singular\t");
-
-  /*
-    Calculate Error
-  */
-  error = CalculateError(a2,b2,c2,y,x,N,Ns);
-  printf("error=%E\n",error);
-
-  /*
-      DONE TESTING TRIDIAGLURD() - Recursive-doubling algorithm
-  */
 
   /* 
     DEALLOCATE ALL ARRAYS
@@ -383,15 +271,34 @@ int main_serial(int N,int Ns)
   return(0);
 }
 
-
 #else
 
-
-/* 
-    THIS FUNCTION TESTS THE PARALLEL IMPLEMENTATION OF THE 
-    TRIDIAGONAL SOLVERS 
+/*
+  THIS FUNCTION CALLS THE TEST FUNCTION FOR THE DIFFERENT 
+  TRIDIAGONAL SOLVERS
 */
 int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
+{
+  int ierr = 0;
+
+  if (!rank) printf("Testing MPI tridiagLURD() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLURD); if (ierr) return(ierr);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if (!rank) printf("Testing MPI tridiagLU() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,&tridiagLU); if (ierr) return(ierr);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* Return */
+  return(0);
+}
+
+/* 
+    THIS FUNCTION TESTS THE PARALLEL IMPLEMENTATION OF A 
+    TRIDIAGONAL SOLVER
+*/
+int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
+             int(*LUSolver)(double**,double**,double**,double**,int,int,void*,void*))
 {
   /* Variable declarations */
   double **a1;    /* sub-diagonal                               */
@@ -422,7 +329,6 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
     nproc
   */
   ierr = partition1D(N,nproc,rank,&nlocal);
-  printf("Rank: %10d,\tLocal Size: %10d\n",rank,nlocal);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* Create MPI Context for the tridiagonal solver functions */
@@ -462,9 +368,8 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
   }
 
   /*
-      TESTING TRIDIAGLU()
+      TESTING THE LU SOLVER
   */
-  if (!rank) printf("Testing MPI tridiagLU() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* 
@@ -496,7 +401,7 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
   
   /* Solve */  
   if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLU(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
 
   /*
@@ -537,7 +442,7 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
 
   /* Solve */  
   if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr = tridiagLU(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
 
   /*
@@ -580,7 +485,7 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
 
   /* Solve */  
   if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLU(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
 
   /*
@@ -593,226 +498,94 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
   MPI_Barrier(MPI_COMM_WORLD);
 
   /*
-      DONE TESTING TRIDIAGLU()
+      DONE TESTING THE LU SOLVER
   */
 
 
-  /*
-      TESTING TRIDIAGLURD() - Recursive-Doubling Algorithm
-  */
-  if (!rank) printf("Testing MPI tridiagLURD() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  /* 
-    TEST 1: Solution of an identity matrix with random
-            right hand side
-            [I]x = b => x = b 
-  */
-
-  /* 
-    Set the values of the matrix elements and the 
-    right hand side
-  */
-  for (d = 0; d < Ns; d++) {
-    for (i = 0; i < nlocal; i++) {
-      a1[d][i] = 0.0;
-      b1[d][i] = 1.0;
-      c1[d][i] = 0.0;
-      x [d][i] = rand();
-    }
-  }
-
-  /*
-    Copy the original values to calculate error later
-  */
-  CopyArray(a1,a2,nlocal,Ns);
-  CopyArray(b1,b2,nlocal,Ns);
-  CopyArray(c1,c2,nlocal,Ns);
-  CopyArray(x ,y ,nlocal,Ns);
-  
-  /* Solve */  
-  if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
-  ierr = tridiagLURD(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
-  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
-
-  /*
-    Calculate Error
-  */
-  error = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
-  if (!rank)  printf("error=%E\n",total_error);
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  /* 
-    TEST 2: Solution of an upper triangular matrix 
-            [U]x = b  
-  */
-
-  /* 
-    Set the values of the matrix elements and the 
-    right hand side
-  */
-  for (d = 0; d < Ns; d++) {
-    for (i = 0; i < nlocal; i++) {
-      a1[d][i] = 0.0;
-      b1[d][i] = 0.5;
-      if (rank == nproc-1) c1[d][i] = (i == nlocal-1 ? 0 : 0.5);
-      else                 c1[d][i] = 0.5;
-      x[d][i]  = 1.0;
-    }
-  }
-
-  /*
-    Copy the original values to calculate error later
-  */
-  CopyArray(a1,a2,nlocal,Ns);
-  CopyArray(b1,b2,nlocal,Ns);
-  CopyArray(c1,c2,nlocal,Ns);
-  CopyArray(x ,y ,nlocal,Ns);
-
-  /* Solve */  
-  if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr = tridiagLURD(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
-  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
-
-  /*
-    Calculate Error
-  */
-  error = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
-  if (!rank) printf("error=%E\n",total_error);
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  /* 
-    TEST 3: Solution of a tridiagonal matrix with random
-            entries and right hand side
-            [A]x = b => x = b 
-  */
-
-  /* 
-    Set the values of the matrix elements and the 
-    right hand side
-  */
-  for (d = 0; d < Ns; d++) {
-    for (i = 0; i < nlocal; i++) {
-      if (!rank )           a1[d][i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
-      else                  a1[d][i] = ((double) rand()) / ((double) RAND_MAX);
-      b1[d][i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
-      if (rank == nproc-1)  c1[d][i] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
-      else                  c1[d][i] = ((double) rand()) / ((double) RAND_MAX);
-      x[d][i]  = ((double) rand()) / ((double) RAND_MAX);
-    }
-  }
-
-  /*
-    Copy the original values to calculate error later
-  */
-  CopyArray(a1,a2,nlocal,Ns);
-  CopyArray(b1,b2,nlocal,Ns);
-  CopyArray(c1,c2,nlocal,Ns);
-  CopyArray(x ,y ,nlocal,Ns);
-
-  /* Solve */  
-  if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = tridiagLURD(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
-  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
-
-  /*
-    Calculate Error
-  */
-  error = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
-  if (!rank) printf("error=%E\n",total_error);
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  /*
-      DONE TESTING TRIDIAGLURD() - Recursive-doubling algorithm
-  */
-  
   /*
       TESTING WALLTIMES FOR NRuns NUMBER OF RUNS OF TRIDIAGLU()
-      FOR SCALABILITY CHECK
+      FOR SCALABILITY CHECK IF REQUIRED
   */
 
-  /* 
-    TEST 4: Same as TEST 3
-    Set the values of the matrix elements and the 
-    right hand side
-  */
-  for (d = 0; d < Ns; d++) {
-    for (i = 0; i < nlocal; i++) {
-      if (!rank )           a1[d][i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
-      else                  a1[d][i] = ((double) rand()) / ((double) RAND_MAX);
-      b1[d][i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
-      if (rank == nproc-1)  c1[d][i] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
-      else                  c1[d][i] = ((double) rand()) / ((double) RAND_MAX);
-      x[d][i]  = ((double) rand()) / ((double) RAND_MAX);
+  if (flag) {
+
+    /* 
+      TEST 4: Same as TEST 3
+      Set the values of the matrix elements and the 
+      right hand side
+    */
+    for (d = 0; d < Ns; d++) {
+      for (i = 0; i < nlocal; i++) {
+        if (!rank )           a1[d][i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+        else                  a1[d][i] = ((double) rand()) / ((double) RAND_MAX);
+        b1[d][i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
+        if (rank == nproc-1)  c1[d][i] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+        else                  c1[d][i] = ((double) rand()) / ((double) RAND_MAX);
+        x[d][i]  = ((double) rand()) / ((double) RAND_MAX);
+      }
     }
-  }
 
-  /*
-    Keep a copy of the original values 
-  */
-  CopyArray(a1,a2,nlocal,Ns);
-  CopyArray(b1,b2,nlocal,Ns);
-  CopyArray(c1,c2,nlocal,Ns);
-  CopyArray(x ,y ,nlocal,Ns);
+    /*
+      Keep a copy of the original values 
+    */
+    CopyArray(a1,a2,nlocal,Ns);
+    CopyArray(b1,b2,nlocal,Ns);
+    CopyArray(c1,c2,nlocal,Ns);
+    CopyArray(x ,y ,nlocal,Ns);
 
-  if (!rank) 
-    printf("\nMPI test 4 (Speed test - %d Tridiagonal Solves):\n",NRuns);
-  double runtimes[5] = {0.0,0.0,0.0,0.0,0.0};
-  error = 0;
-  /* 
-    Solve the systen NRuns times
-  */  
-  for (i = 0; i < NRuns; i++) {
-    TridiagLUTime timing;
-    /* Copy the original values */
-    CopyArray(a2,a1,nlocal,Ns);
-    CopyArray(b2,b1,nlocal,Ns);
-    CopyArray(c2,c1,nlocal,Ns);
-    CopyArray(y ,x ,nlocal,Ns);
-    /* Solve the system */
-    ierr         = tridiagLU(a1,b1,c1,x,nlocal,Ns,&timing,&mpi);
-    /* Calculate errors */
-    double err   = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
-    /* Add the walltimes to the cumulative total */
-    runtimes[0] += timing.total_time;
-    runtimes[1] += timing.stage1_time;
-    runtimes[2] += timing.stage2_time;
-    runtimes[3] += timing.stage3_time;
-    runtimes[4] += timing.stage4_time;
-    if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
-    error += err;
-  }
+    if (!rank) 
+      printf("\nMPI test 4 (Speed test - %d Tridiagonal Solves):\n",NRuns);
+    double runtimes[5] = {0.0,0.0,0.0,0.0,0.0};
+    error = 0;
+    /* 
+      Solve the systen NRuns times
+    */  
+    for (i = 0; i < NRuns; i++) {
+      TridiagLUTime timing;
+      /* Copy the original values */
+      CopyArray(a2,a1,nlocal,Ns);
+      CopyArray(b2,b1,nlocal,Ns);
+      CopyArray(c2,c1,nlocal,Ns);
+      CopyArray(y ,x ,nlocal,Ns);
+      /* Solve the system */
+      ierr         = tridiagLU(a1,b1,c1,x,nlocal,Ns,&timing,&mpi);
+      /* Calculate errors */
+      double err   = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
+      /* Add the walltimes to the cumulative total */
+      runtimes[0] += timing.total_time;
+      runtimes[1] += timing.stage1_time;
+      runtimes[2] += timing.stage2_time;
+      runtimes[3] += timing.stage3_time;
+      runtimes[4] += timing.stage4_time;
+      if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+      error += err;
+    }
   
-  /* Calculate average error */
-  error /= NRuns;
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
+    /* Calculate average error */
+    error /= NRuns;
+    if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    else            total_error = error;
 
-  /* Calculate maximum value of walltime across all processes */
-  MPI_Allreduce(MPI_IN_PLACE,&runtimes[0],5,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+    /* Calculate maximum value of walltime across all processes */
+    MPI_Allreduce(MPI_IN_PLACE,&runtimes[0],5,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  /* Print results */
-  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
-  if (!rank) {
-    printf("\t\tTotal  walltime = %E\n",runtimes[0]);
-    printf("\t\tStage1 walltime = %E\n",runtimes[1]);
-    printf("\t\tStage2 walltime = %E\n",runtimes[2]);
-    printf("\t\tStage3 walltime = %E\n",runtimes[3]);
-    printf("\t\tStage4 walltime = %E\n",runtimes[4]);
-    printf("\t\tAverage error   = %E\n",total_error);
-    FILE *out;
-    out = fopen("walltimes.dat","w");
-    fprintf(out,"%5d  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
-            runtimes[1],runtimes[2],runtimes[3],runtimes[4]);
-    fclose(out);
+    /* Print results */
+    if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+    if (!rank) {
+      printf("\t\tTotal  walltime = %E\n",runtimes[0]);
+      printf("\t\tStage1 walltime = %E\n",runtimes[1]);
+      printf("\t\tStage2 walltime = %E\n",runtimes[2]);
+      printf("\t\tStage3 walltime = %E\n",runtimes[3]);
+      printf("\t\tStage4 walltime = %E\n",runtimes[4]);
+      printf("\t\tAverage error   = %E\n",total_error);
+      FILE *out;
+      out = fopen("walltimes.dat","w");
+      fprintf(out,"%5d  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
+              runtimes[1],runtimes[2],runtimes[3],runtimes[4]);
+      fclose(out);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
   }
-  MPI_Barrier(MPI_COMM_WORLD);
 
   /*
       DONE TESTING TRIDIAGLU() WALLTIMES
