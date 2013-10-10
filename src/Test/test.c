@@ -73,6 +73,9 @@ int main_serial(int N,int Ns)
 {
   int ierr = 0;
 
+  printf("Testing serial tridiagLUGS() with N=%d, Ns=%d\n",N,Ns);
+  ierr = test_serial(N,Ns,&tridiagLUGS); if(ierr) return(ierr);
+
   printf("Testing serial tridiagLURD() with N=%d, Ns=%d\n",N,Ns);
   ierr = test_serial(N,Ns,&tridiagLURD); if(ierr) return(ierr);
 
