@@ -281,6 +281,10 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
 {
   int ierr = 0;
 
+  if (!rank) printf("Testing MPI tridiagLUGS() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLUGS); if (ierr) return(ierr);
+  MPI_Barrier(MPI_COMM_WORLD);
+
   if (!rank) printf("Testing MPI tridiagLURD() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLURD); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);

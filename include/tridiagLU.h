@@ -2,10 +2,36 @@
 
   Parallel direct solver for tridiagonal systems 
 
-  tridiagLU  (a,b,c,x,n,ns,r,m) (Parallel tridiagonal solver)
-  tridiagLURD(a,b,c,x,n,ns,r,m) (Parallel tridiagonal solver
-                                 based on the recursive-
-                                 doubling algorithm)
+  tridiagLU  (a,b,c,x,n,ns,r,m) - Parallel tridiagonal solver
+    
+    Solves the tridiagonal system in parallel by reordering the
+    points such that the first point of each subdomain is placed
+    at the end.
+
+    The interior points are eliminated in parallel, resulting in
+    a reduced system consisting of the first point of each sub-
+    domain.
+
+    This reduced system is solved either by the gather-and-
+    solve (tridiagLUGS) or the recursive-doubling (tridiagLURD)
+    algorithms.
+
+  tridiagLURD(a,b,c,x,n,ns,r,m) - Parallel tridiagonal solver
+                                  based on the recursive-
+                                  doubling algorithm
+
+    The tridiagonal solver is solved in parallel by the recursive
+    doubling algorithm. Note that this algorithm is unstable for
+    large system sizes (> 1000).
+
+  tridiagLUGS(a,b,c,x,n,ns,r,m) - Tridiagonal solver based on
+                                  "gather and solve"
+
+    Each of the "ns" systems is gathered on one processor, 
+    solved in serial, and the solution scattered back. The
+    parallelism lies in solving the "ns" different systems 
+    by multiple processors (i.e., each processor solves 
+    ~ns/nproc number of systems in serial).
 
   Arguments:-
     a   [0,ns-1]x[0,n-1] double**         subdiagonal entries
@@ -78,3 +104,4 @@ typedef struct _mpi_context_ {
 
 int tridiagLU  (double**,double**,double**,double**,int,int,void*,void*);
 int tridiagLURD(double**,double**,double**,double**,int,int,void*,void*);
+int tridiagLUGS(double**,double**,double**,double**,int,int,void*,void*);
