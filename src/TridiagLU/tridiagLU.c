@@ -136,15 +136,9 @@ int tridiagLU(double **a,double **b,double **c,double **x,
       zero[d] = (double* ) calloc (1,sizeof(double )); zero[d][0] = 0.0;
       one [d] = (double* ) calloc (1,sizeof(double )); one [d][0] = 1.0;
     }
-#if defined(gather_and_solve)
-    /* Solving the reduced system in parallel by gather-and-solve algorithm */
+    /* Solving the reduced system by gather-and-solve algorithm */
     if (rank) ierr = tridiagLUGS(a,b,c,x,1,ns,NULL,mpi);
     else      ierr = tridiagLUGS(zero,one,zero,zero,1,ns,NULL,mpi);
-#elif defined(recursive_doubling)
-    /* Solving the reduced system in parallel by recursive-doubling algorithm */
-    if (rank) ierr = tridiagLURD(a,b,c,x,1,ns,NULL,mpi);
-    else      ierr = tridiagLURD(zero,one,zero,zero,1,ns,NULL,mpi);
-#endif /* type of solution for reduced system */
     if (ierr) return(ierr);
     for (d=0; d<ns; d++) free(zero[d]); free(zero);
     for (d=0; d<ns; d++) free(one [d]); free(one );

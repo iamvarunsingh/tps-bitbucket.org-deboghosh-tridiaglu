@@ -16,14 +16,6 @@
     solve (tridiagLUGS) or the recursive-doubling (tridiagLURD)
     algorithms.
 
-  tridiagLURD(a,b,c,x,n,ns,r,m) - Parallel tridiagonal solver
-                                  based on the recursive-
-                                  doubling algorithm
-
-    The tridiagonal solver is solved in parallel by the recursive
-    doubling algorithm. Note that this algorithm is unstable for
-    large system sizes (> 1000).
-
   tridiagLUGS(a,b,c,x,n,ns,r,m) - Tridiagonal solver based on
                                   "gather and solve"
 
@@ -62,12 +54,6 @@
     On rank=0,        a[0] has to be zero.
     On rank=nproc-1,  c[n-1] has to be zero.
 
-  ** Compile with either of the following flags:
-  "-Dgather_and_solve"  : Reduced systems are gathered on one processor 
-                          and solved
-  "-Drecursive_doubling": Reduced systems are solved on all processors 
-                          using the recursive doubling algorithm
-
   For a serial tridiagonal solver, compile with the flag "-Dserial"
   or send NULL as the argument for the MPI communicator.
 
@@ -103,5 +89,4 @@ typedef struct _mpi_context_ {
 } MPIContext;
 
 int tridiagLU  (double**,double**,double**,double**,int,int,void*,void*);
-int tridiagLURD(double**,double**,double**,double**,int,int,void*,void*);
 int tridiagLUGS(double**,double**,double**,double**,int,int,void*,void*);

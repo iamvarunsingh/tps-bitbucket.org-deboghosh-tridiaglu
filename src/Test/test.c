@@ -76,9 +76,6 @@ int main_serial(int N,int Ns)
   printf("Testing serial tridiagLUGS() with N=%d, Ns=%d\n",N,Ns);
   ierr = test_serial(N,Ns,&tridiagLUGS); if(ierr) return(ierr);
 
-  printf("Testing serial tridiagLURD() with N=%d, Ns=%d\n",N,Ns);
-  ierr = test_serial(N,Ns,&tridiagLURD); if(ierr) return(ierr);
-
   printf("Testing serial tridiagLU() with N=%d, Ns=%d\n",N,Ns);
   ierr = test_serial(N,Ns,&tridiagLU); if(ierr) return(ierr);
 
@@ -286,10 +283,6 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
 
   if (!rank) printf("Testing MPI tridiagLUGS() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLUGS); if (ierr) return(ierr);
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  if (!rank) printf("Testing MPI tridiagLURD() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
-  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLURD); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
 
   if (!rank) printf("Testing MPI tridiagLU() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);

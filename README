@@ -4,11 +4,27 @@ The following functions are available in src/TridiagLU (/include as the
 required header file):-
 
   tridiagLU  (a,b,c,x,n,ns,r,m) (Parallel tridiagonal solver)
-  tridiagLURD(a,b,c,x,n,ns,r,m) (Parallel tridiagonal solver
-                                 based on the recursive-doubling 
-                                 algorithm)
-** Note: the recursive-doubling algorithm is unstable for large 
-         system sizes
+
+    Solves the tridiagonal system in parallel by reordering the
+    points such that the first point of each subdomain is placed
+    at the end.
+
+    The interior points are eliminated in parallel, resulting in
+    a reduced system consisting of the first point of each sub-
+    domain.
+
+    This reduced system is solved either by the gather-and-
+    solve (tridiagLUGS) or the recursive-doubling (tridiagLURD)
+    algorithms.
+
+  tridiagLUGS(a,b,c,x,n,ns,r,m) (Tridiagonal solver using the
+                                 gather-and-solve strategy)
+
+    Each of the "ns" systems is gathered on one processor, 
+    solved in serial, and the solution scattered back. The
+    parallelism lies in solving the "ns" different systems 
+    by multiple processors (i.e., each processor solves 
+    ~ns/nproc number of systems in serial).
 
 ** A test code is provided in /src/Test to check the tridiagonal
    solvers and test the walltimes.
@@ -20,14 +36,6 @@ REFERENCES:-
 tridiagLU() solves the parallel tridiagonal system by rearranging the 
 equations such that the last points of each sub-domain are grouped at
 the end. See doc/algorithm.pdf for a rough sketch.
-
-tridiagLURD() uses the "recursive doubling" technique. Refer to:
-Eric F. Van de Velde, "Concurrent Scientific Computing", Springer-
-Verlag
-
-There are some scalability plots in doc/. These were obtained on the
-Fusion cluster at Argonne National Laboratory 
-(http://www.lcrc.anl.gov/fusion/)
 
 ------------------------------------------------------------------------
 
@@ -44,19 +52,7 @@ This will generate the required files for:
 If unpacked from tarball, then proceed with ./configure, make and
 make install.
 
-The tridiagonal solver functions need to be compiled with one of
-the following flags:
-
--Dserial              : Serial version
--Dgather_and_solve    : tridiagLU() solves the reduced system
-                        by gathering it on one process, solving
-                        it and scattering the results
--Drecursive_doubling  : tridiagLU() solves the reduced system
-                        by calling the recursive-doubling algo-
-                        rithm, tridiagLURD().
-
-** One of these flags *HAVE* to be specified.
-** The last two flags do not affect tridiagLURD()
+** To compile a serial version: use -Dserial as the compile flag
 
 ------------------------------------------------------------------------
 
@@ -70,7 +66,7 @@ USING THESE FUNCTIONS:-
 Copy the header file include/tridiagLU.h to the include folder of
 the code calling these functions. Copy the files 
 src/TridiagLU/tridiagLU.c
-src/TridiagLU/tridiagLURD.c
+src/TridiagLU/tridiagLUGS.c
 to the the code's src directory and include them while compiling.
 
 *OR*
@@ -112,12 +108,6 @@ FUNCTION ARGUMENTS:
     a,b,c are not preserved
     On rank=0,        a[0] has to be zero.
     On rank=nproc-1,  c[n-1] has to be zero.
-
-  ** Compile with either of the following flags:
-  "-Dgather_and_solve"  : Reduced systems are gathered on one processor 
-                          and solved
-  "-Drecursive_doubling": Reduced systems are solved on all processors 
-                          using the recursive doubling algorithm
 
   For a serial tridiagonal solver, compile with the flag "-Dserial"
   or send NULL as the argument for the MPI Context.
