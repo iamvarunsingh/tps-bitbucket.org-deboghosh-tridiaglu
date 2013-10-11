@@ -71,7 +71,6 @@ int tridiagLUGS(double **a,double **b,double **c,double **x,
       rx[d] = (double*) calloc (NT, sizeof(double));
       for (i = 0; i < NT; i++) 
         ra[d][i] = rb[d][i] = rc[d][i] = rx[d][i] = 0.0;
-        rb[d][i] = 1.0;
     }
   }
 
