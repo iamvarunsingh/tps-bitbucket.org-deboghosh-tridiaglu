@@ -21,8 +21,6 @@ int tridiagLU(double **a,double **b,double **c,double **x,
   int             *proc;
   double          *sendbuf,*recvbuf;
   MPI_Comm        *comm;
-  MPI_Request     *request;
-  MPI_Status      *status;
 #endif
 
   /* start */
@@ -91,15 +89,10 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     sendbuf[d*nvar+3] = x[d][n-1];
   }
   if (nproc > 1) {
-    int nreq = ((rank == 0 || rank == nproc-1) ? 1 : 2);
-    request  = (MPI_Request*) calloc (nreq,sizeof(MPI_Request));
-    status   = (MPI_Status*)  calloc (nreq,sizeof(MPI_Status));
-    if (rank != nproc-1)  MPI_Isend(sendbuf,nvar*ns,MPI_DOUBLE,proc[rank+1],1436,*comm,&request[0]);
-    if (rank == nproc-1 ) MPI_Irecv(recvbuf,nvar*ns,MPI_DOUBLE,proc[rank-1],1436,*comm,&request[0]);
-    else if (rank)        MPI_Irecv(recvbuf,nvar*ns,MPI_DOUBLE,proc[rank-1],1436,*comm,&request[1]);
-    MPI_Waitall(nreq,&request[0],&status[0]);
-    free(request);
-    free(status);
+    MPI_Status  rcvsts;
+    MPI_Request sndreq;
+    if (rank != nproc-1)  MPI_Isend(sendbuf,nvar*ns,MPI_DOUBLE,proc[rank+1],1436,*comm,&sndreq);
+    if (rank)             MPI_Recv (recvbuf,nvar*ns,MPI_DOUBLE,proc[rank-1],1436,*comm,&rcvsts);
   }
   /* The first process sits this one out */
   if (rank) {
