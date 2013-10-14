@@ -13,7 +13,7 @@ int tridiagLUGS(double **a,double **b,double **c,double **x,
 #ifdef serial
 
   /* Serial compilation */
-  return(tridiagLU(a,b,c,x,n,ns,NULL,NULL));
+  return(tridiagLU(a,b,c,x,n,ns,r,m));
 
 #else
 
@@ -21,7 +21,7 @@ int tridiagLUGS(double **a,double **b,double **c,double **x,
   MPIContext      *mpi = (MPIContext*) m;
 
   /* MPIContext argument = NULL => Serial solve */
-  if (!mpi) return(tridiagLU(a,b,c,x,n,ns,NULL,NULL));
+  if (!mpi) return(tridiagLU(a,b,c,x,n,ns,r,NULL));
 
   int         d,i,ierr = 0,dstart,istart,p,q;
   const int   nvar = 4;
