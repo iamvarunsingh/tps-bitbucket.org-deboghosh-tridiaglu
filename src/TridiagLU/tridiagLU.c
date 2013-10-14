@@ -89,10 +89,10 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     sendbuf[d*nvar+3] = x[d][n-1];
   }
   if (nproc > 1) {
-    MPI_Status  rcvsts;
-    MPI_Request sndreq;
+    MPI_Request sndreq = MPI_REQUEST_NULL;
     if (rank != nproc-1)  MPI_Isend(sendbuf,nvar*ns,MPI_DOUBLE,proc[rank+1],1436,*comm,&sndreq);
-    if (rank)             MPI_Recv (recvbuf,nvar*ns,MPI_DOUBLE,proc[rank-1],1436,*comm,&rcvsts);
+    if (rank)             MPI_Recv (recvbuf,nvar*ns,MPI_DOUBLE,proc[rank-1],1436,*comm,MPI_STATUS_IGNORE);
+    MPI_Wait(&sndreq,MPI_STATUS_IGNORE);
   }
   /* The first process sits this one out */
   if (rank) {
@@ -137,11 +137,11 @@ int tridiagLU(double **a,double **b,double **c,double **x,
     for (d=0; d<ns; d++) free(one [d]); free(one );
 
     /* Each process, get the first x of the next process */
-    MPI_Status  rcvsts;
-    MPI_Request sndreq;
+    MPI_Request sndreq = MPI_REQUEST_NULL;
     for (d=0; d<ns; d++)  xs1[d] = x[d][0];
     if (rank)           MPI_Isend(xs1,ns,MPI_DOUBLE,proc[rank-1],1323,*comm,&sndreq);
-    if (rank+1 < nproc) MPI_Recv (xp1,ns,MPI_DOUBLE,proc[rank+1],1323,*comm,&rcvsts);
+    if (rank+1 < nproc) MPI_Recv (xp1,ns,MPI_DOUBLE,proc[rank+1],1323,*comm,MPI_STATUS_IGNORE);
+    MPI_Wait(&sndreq,MPI_STATUS_IGNORE);
   }
 #else
   if (nproc > 1) {

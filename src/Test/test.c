@@ -664,36 +664,24 @@ double CalculateError(double **a,double **b,double **c,double **y,double **x,
                       int N,int Ns,int rank,int nproc)
 {
   double        error = 0;
-  int           i,d,nreq;
+  int           i,d;
   double        xp1, xm1; /* solution from neighboring processes */
-  MPI_Status    *status;
-  MPI_Request   *request;
 
   for (d = 0; d < Ns; d++) {
     xp1 = 0;
     if (nproc > 1) {
-      nreq = ((rank == 0 || rank == nproc-1) ? 1 : 2);
-      request  = (MPI_Request*) calloc (nreq,sizeof(MPI_Request));
-      status   = (MPI_Status*)  calloc (nreq,sizeof(MPI_Status));
-      if (rank)                   MPI_Isend(&x[d][0],1,MPI_DOUBLE,rank-1,1738,MPI_COMM_WORLD,&request[0]);
-      if (!rank)                  MPI_Irecv(&xp1    ,1,MPI_DOUBLE,rank+1,1738,MPI_COMM_WORLD,&request[0]);
-      else if (rank != nproc-1)   MPI_Irecv(&xp1    ,1,MPI_DOUBLE,rank+1,1738,MPI_COMM_WORLD,&request[1]);
-      MPI_Waitall(nreq,&request[0],&status[0]);
-      free(request);
-      free(status);
+      MPI_Request request = MPI_REQUEST_NULL;
+      if (rank != nproc-1)  MPI_Irecv(&xp1    ,1,MPI_DOUBLE,rank+1,1738,MPI_COMM_WORLD,&request);
+      if (rank)             MPI_Send(&x[d][0],1,MPI_DOUBLE,rank-1,1738,MPI_COMM_WORLD);
+      MPI_Wait(&request,MPI_STATUS_IGNORE);
     }
   
     xm1 = 0;
     if (nproc > 1) {
-      nreq = ((rank == 0 || rank == nproc-1) ? 1 : 2);
-      request  = (MPI_Request*) calloc (nreq,sizeof(MPI_Request));
-      status   = (MPI_Status*)  calloc (nreq,sizeof(MPI_Status));
-      if (rank != nproc-1)  MPI_Isend(&x[d][N-1],1,MPI_DOUBLE,rank+1,1739,MPI_COMM_WORLD,&request[0]);
-      if (rank == nproc-1 ) MPI_Irecv(&xm1      ,1,MPI_DOUBLE,rank-1,1739,MPI_COMM_WORLD,&request[0]);
-      else if (rank)        MPI_Irecv(&xm1      ,1,MPI_DOUBLE,rank-1,1739,MPI_COMM_WORLD,&request[1]);
-      MPI_Waitall(nreq,&request[0],&status[0]);
-      free(request);
-      free(status);
+      MPI_Request request = MPI_REQUEST_NULL;
+      if (rank)             MPI_Irecv(&xm1,1,MPI_DOUBLE,rank-1,1739,MPI_COMM_WORLD,&request);
+      if (rank != nproc-1)  MPI_Send(&x[d][N-1],1,MPI_DOUBLE,rank+1,1739,MPI_COMM_WORLD);
+      MPI_Wait(&request,MPI_STATUS_IGNORE);
     }
 
     error = 0;
