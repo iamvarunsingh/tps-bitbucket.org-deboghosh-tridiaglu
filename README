@@ -114,7 +114,7 @@ FUNCTION ARGUMENTS:
 
 ------------------------------------------------------------------------
 
-EXPLANATION FOR MPI CONTEXT:
+MPI CONTEXT:
 
 The last argument for the functions is a pointer to an object of type
 MPIContext (see header file for definition). This object contains the 
@@ -123,54 +123,6 @@ following:-
             cipating in the tridiagonal solve
   nproc     number of processes participating in the tridiagonal solve
   comm      MPI communicator
-  proc      an array of size nproc containing the actual rank in comm
-            for each rank 0,...,nproc
-
-The tridiagonal solver considers the system split into nproc number of
-processes with each process rank being 0,....,nproc.
-
-If the system being solved is a part of a 1D problem, i.e, for processes 
-in the communicator comm arranged as
-
-  0 | 1 | 2 | ... | ... | nproc-1
-
-with *all* processes participating in the solution process, then
-
-  proc[rank] = rank, 0 <= rank < nproc
-  
-since the 1D arrangement of processes is identical to that assumed by the
-tridiagonal solver. In this case, one can let proc be an array such that
-
-  proc[rank] = rank
-
-** It cannot be NULL.
-
-However, consider a 2D problem with the grid split in both dimensions and 
-processes arranged as follows:
-
-      10 | 11 | 12 | 13 | 14
-      ----------------------
-    j  5 |  6 |  7 |  8 |  9
-      ----------------------
-       0 |  1 |  2 |  3 |  4
-                i
-
-i.e, 15 processes, with the domain split 5 parts in i and 3 parts in j. For
-this example, to solve a tridiagonal system involving the middle row:
-
-  rank  = 0,1,2,3,4
-  nproc = 5
-  proc  = [5,6,7,8,9]
-
-Similarly, to solve a tridiagonal system involving the left-most column,
-
-  rank  = 0,1,2
-  nproc = 3
-  proc  = [0,5,10]
-
-This is how the MPIContext object can be used to solve tridiagonal systems
-involving a subdomain and some of the processes in the communicator using
-the functions provided here.
 
 ** Setting this object to NULL implies a serial run
 ------------------------------------------------------------------------

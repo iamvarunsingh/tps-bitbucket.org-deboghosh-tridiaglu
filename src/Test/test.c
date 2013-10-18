@@ -336,12 +336,6 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   mpi.rank = rank;        /* Rank of the process  */
   mpi.nproc = nproc;      /* Number of processes  */
   mpi.comm  = &world;     /* Communicator         */
-  /* 
-    Create the array containing the mapping of the actual rank
-    with the rank that the tridiagonal solver wants
-  */
-  mpi.proc = (int*) calloc (nproc,sizeof(int));
-  for (d=0; d<nproc; d++) mpi.proc[d] = d;
 
   /* 
     Allocate arrays of dimension (Ns x nlocal) 
@@ -612,7 +606,6 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   free(c2);
   free(x);
   free(y);
-  free(mpi.proc);
   MPI_Comm_free(&world);
 
   /* Return */
