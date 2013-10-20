@@ -96,10 +96,7 @@ FUNCTION ARGUMENTS:
                             function needs to do something to add/average 
                             them to get some global value.
                          ** Can be NULL if runtimes are not needed.
-    m                    MPIContext*         MPI Context
-                                             **See below
-                                             **Can be set to NULL for
-                                               a serial computation
+    m                    MPI_Comm*         MPI Communicator
 
   Return value (int) -> 0 (successful solve), -1 (singular system)
 
@@ -110,19 +107,6 @@ FUNCTION ARGUMENTS:
     On rank=nproc-1,  c[n-1] has to be zero.
 
   For a serial tridiagonal solver, compile with the flag "-Dserial"
-  or send NULL as the argument for the MPI Context.
+  or send NULL as the argument for the MPI Communicator.
 
-------------------------------------------------------------------------
-
-MPI CONTEXT:
-
-The last argument for the functions is a pointer to an object of type
-MPIContext (see header file for definition). This object contains the 
-following:-
-  rank      rank of this process with respect to the processes parti-
-            cipating in the tridiagonal solve
-  nproc     number of processes participating in the tridiagonal solve
-  comm      MPI communicator
-
-** Setting this object to NULL implies a serial run
 ------------------------------------------------------------------------
