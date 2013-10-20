@@ -331,12 +331,6 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   ierr = partition1D(N,nproc,rank,&nlocal);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  /* Create MPI Context for the tridiagonal solver functions */
-  MPIContext mpi;         /* Context              */
-  mpi.rank = rank;        /* Rank of the process  */
-  mpi.nproc = nproc;      /* Number of processes  */
-  mpi.comm  = &world;     /* Communicator         */
-
   /* 
     Allocate arrays of dimension (Ns x nlocal) 
     Ns      -> number of systems
@@ -395,7 +389,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   
   /* Solve */  
   if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
-  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
 
   /*
@@ -436,7 +430,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
 
   /* Solve */  
   if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
 
   /*
@@ -479,7 +473,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
 
   /* Solve */  
   if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&mpi);
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
 
   /*
@@ -542,7 +536,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
       CopyArray(c2,c1,nlocal,Ns);
       CopyArray(y ,x ,nlocal,Ns);
       /* Solve the system */
-      ierr         = tridiagLU(a1,b1,c1,x,nlocal,Ns,&timing,&mpi);
+      ierr         = tridiagLU(a1,b1,c1,x,nlocal,Ns,&timing,&world);
       /* Calculate errors */
       double err   = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
       /* Add the walltimes to the cumulative total */
