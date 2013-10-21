@@ -76,6 +76,9 @@ int main_serial(int N,int Ns)
   printf("Testing serial tridiagLUGS() with N=%d, Ns=%d\n",N,Ns);
   ierr = test_serial(N,Ns,&tridiagLUGS); if(ierr) return(ierr);
 
+  printf("Testing serial tridiagIterJacobi() with N=%d, Ns=%d\n",N,Ns);
+  ierr = test_serial(N,Ns,&tridiagIterJacobi); if(ierr) return(ierr);
+
   printf("Testing serial tridiagLU() with N=%d, Ns=%d\n",N,Ns);
   ierr = test_serial(N,Ns,&tridiagLU); if(ierr) return(ierr);
 
@@ -89,6 +92,13 @@ int main_serial(int N,int Ns)
 */
 int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**,int,int,void*,void*))
 {
+  int     d,i,ierr=0;
+  double  error;
+  TridiagLU context;
+
+  /* Initialize tridiagonal solver parameters */
+  ierr = tridiagLUInit(&context,NULL); if (ierr) return(ierr);
+
   /* Variable declarations */
   double **a1;    /* sub-diagonal                               */
   double **b1;    /* diagonal                                   */
@@ -100,10 +110,6 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
     store a copy of them to calculate error after the solve
   */
   double **a2,**b2,**c2,**y;
-
-  /* Other variables */
-  int     d,i,ierr=0;
-  double  error;
 
   /* Initialize random number generator */
   srand(time(NULL));
@@ -161,7 +167,7 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
   
   /* Solve */  
   printf("TridiagLU Serial test 1 ([I]x = b => x = b):        \t");
-  ierr = LUSolver(a1,b1,c1,x,N,Ns,NULL,NULL);
+  ierr = LUSolver(a1,b1,c1,x,N,Ns,&context,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
 
   /*
@@ -182,7 +188,7 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < N; i++) {
       a1[d][i] = 0.0;
-      b1[d][i] = 0.5;
+      b1[d][i] = 100.0;
       c1[d][i] = (i == N-1 ? 0 : 0.5);
       x [d][i] = 1.0;
     }
@@ -198,7 +204,7 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
 
   /* Solve */  
   printf("TridiagLU Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr = LUSolver(a1,b1,c1,x,N,Ns,NULL,NULL);
+  ierr = LUSolver(a1,b1,c1,x,N,Ns,&context,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
 
   /*
@@ -220,7 +226,7 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < N; i++) {
       a1[d][i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
-      b1[d][i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
+      b1[d][i] = 100.0*(1.0+((double) rand()) / ((double) RAND_MAX));
       c1[d][i] = (i == N-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
       x [d][i] = ((double) rand()) / ((double) RAND_MAX);
     }
@@ -236,7 +242,7 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
 
   /* Solve */  
   printf("TridiagLU Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = LUSolver(a1,b1,c1,x,N,Ns,NULL,NULL);
+  ierr = LUSolver(a1,b1,c1,x,N,Ns,&context,NULL);
   if (ierr == -1) printf("Error - system is singular\t");
 
   /*
@@ -280,11 +286,15 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
 int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
 {
   int ierr = 0;
-
+/*
   if (!rank) printf("Testing MPI tridiagLUGS() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLUGS); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
 
+  if (!rank) printf("Testing MPI tridiagIterJacobi() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagIterJacobi); if (ierr) return(ierr);
+  MPI_Barrier(MPI_COMM_WORLD);
+*/
   if (!rank) printf("Testing MPI tridiagLU() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,&tridiagLU); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
@@ -300,6 +310,10 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
 int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
              int(*LUSolver)(double**,double**,double**,double**,int,int,void*,void*))
 {
+  int       i,d,ierr=0,nlocal;
+  double    error,total_error;
+  MPI_Comm  world;
+  TridiagLU context;
   /* Variable declarations */
   double **a1;    /* sub-diagonal                               */
   double **b1;    /* diagonal                                   */
@@ -312,13 +326,11 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   */
   double **a2,**b2,**c2,**y;
 
-  /* Other variables */
-  int       i,d,ierr=0,nlocal;
-  double    error,total_error;
-  MPI_Comm  world;
- 
   /* Creating a duplicate communicator */
   MPI_Comm_dup(MPI_COMM_WORLD,&world);
+
+  /* Initialize tridiagonal solver parameters */
+  ierr = tridiagLUInit(&context,&world); if (ierr) return(ierr);
 
   /* Initialize random number generator */
   srand(time(NULL));
@@ -389,7 +401,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   
   /* Solve */  
   if (!rank)  printf("MPI test 1 ([I]x = b => x = b):        \t");
-  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&world);
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,&context,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
 
   /*
@@ -413,7 +425,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < nlocal; i++) {
       a1[d][i] = 0.0;
-      b1[d][i] = 0.5;
+      b1[d][i] = 400.0;
       if (rank == nproc-1) c1[d][i] = (i == nlocal-1 ? 0 : 0.5);
       else                 c1[d][i] = 0.5;
       x[d][i]  = 1.0;
@@ -430,7 +442,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
 
   /* Solve */  
   if (!rank) printf("MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
-  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&world);
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,&context,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
 
   /*
@@ -456,7 +468,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
     for (i = 0; i < nlocal; i++) {
       if (!rank )           a1[d][i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
       else                  a1[d][i] = ((double) rand()) / ((double) RAND_MAX);
-      b1[d][i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
+      b1[d][i] = 100.0*(1.0 + ((double) rand()) / ((double) RAND_MAX));
       if (rank == nproc-1)  c1[d][i] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
       else                  c1[d][i] = ((double) rand()) / ((double) RAND_MAX);
       x[d][i]  = ((double) rand()) / ((double) RAND_MAX);
@@ -473,7 +485,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
 
   /* Solve */  
   if (!rank) printf("MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
-  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,NULL,&world);
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,&context,&world);
   if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
 
   /*
@@ -529,22 +541,21 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
       Solve the systen NRuns times
     */  
     for (i = 0; i < NRuns; i++) {
-      TridiagLUTime timing;
       /* Copy the original values */
       CopyArray(a2,a1,nlocal,Ns);
       CopyArray(b2,b1,nlocal,Ns);
       CopyArray(c2,c1,nlocal,Ns);
       CopyArray(y ,x ,nlocal,Ns);
       /* Solve the system */
-      ierr         = tridiagLU(a1,b1,c1,x,nlocal,Ns,&timing,&world);
+      ierr         = tridiagLU(a1,b1,c1,x,nlocal,Ns,&context,&world);
       /* Calculate errors */
       double err   = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
       /* Add the walltimes to the cumulative total */
-      runtimes[0] += timing.total_time;
-      runtimes[1] += timing.stage1_time;
-      runtimes[2] += timing.stage2_time;
-      runtimes[3] += timing.stage3_time;
-      runtimes[4] += timing.stage4_time;
+      runtimes[0] += context.total_time;
+      runtimes[1] += context.stage1_time;
+      runtimes[2] += context.stage2_time;
+      runtimes[3] += context.stage3_time;
+      runtimes[4] += context.stage4_time;
       if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
       error += err;
     }

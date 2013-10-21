@@ -34,7 +34,7 @@ fi
 
 CFLAGS="$CFLAGS -I/opt/local/include -I$includedir"
 LDFLAGS="$LDFLAGS -L/opt/local/lib"
-LIBS="$LIBS"
+LIBS="$LIBS -lm"
 
 AC_PROG_RANLIB
 AC_PROG_INSTALL

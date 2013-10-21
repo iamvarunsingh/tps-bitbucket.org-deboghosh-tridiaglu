@@ -1,6 +1,6 @@
 PARALLEL (MPI) DIRECT SOLVER FOR A TRIDIAGONAL SYSTEM OF EQUATIONS
 
-The following functions are available in src/TridiagLU (/include as the 
+The following functions are available in src/TridiagLU (include has the 
 required header file):-
 
   tridiagLU  (a,b,c,x,n,ns,r,m) (Parallel tridiagonal solver)
@@ -26,6 +26,10 @@ required header file):-
     by multiple processors (i.e., each processor solves 
     ~ns/nproc number of systems in serial).
 
+  tridiagIterJacobi(a,b,c,x,n,ns,r,m) (Iterative tridiagonal solver 
+                                       using the Jacobi method)
+    The system is solved iteratively.
+
 ** A test code is provided in /src/Test to check the tridiagonal
    solvers and test the walltimes.
 
@@ -36,6 +40,21 @@ REFERENCES:-
 tridiagLU() solves the parallel tridiagonal system by rearranging the 
 equations such that the last points of each sub-domain are grouped at
 the end. See doc/algorithm.pdf for a rough sketch.
+
+tridiagLU() solves the parallel tridiagonal system of equations by 
+rearranging the points. One stage requires the solution of a reduced
+system of equations of size nproc (number of processors), where one row
+resides on each process.
+
+The reduced system can be solved by 
++ tridiagLUGS() (direct)
++ tridiagIterJacobi() (iterative)
+
+This choice can be specified by the member "reducedsolvetype" in the
+TridiagLU structure.
+
+Typically, the reduced system is *strongly* diagonally dominant and an
+iterative solution is very efficient.
 
 ------------------------------------------------------------------------
 
@@ -86,17 +105,11 @@ FUNCTION ARGUMENTS:
     x   [0,ns-1]x[0,n-1] double**         right-hand side (solution)
     n                    int              local size of the system
     ns                   int              number of systems to solve
-    r                    TridiagLUTime*   structure containing the runtimes
-                                            total_time
-                                            stage1_time
-                                            stage2_time
-                                            stage3_time
-                                            stage4_time
-                         ** Note that these are process-specific. Calling 
-                            function needs to do something to add/average 
-                            them to get some global value.
-                         ** Can be NULL if runtimes are not needed.
-    m                    MPI_Comm*         MPI Communicator
+    r                    TridiagLU*       structure for tridiagonal solver
+                                          parameters 
+                                          (see include/tridiagLU.h for
+                                           more details)
+    m                    MPI_Comm*        MPI Communicator
 
   Return value (int) -> 0 (successful solve), -1 (singular system)
 
@@ -108,5 +121,33 @@ FUNCTION ARGUMENTS:
 
   For a serial tridiagonal solver, compile with the flag "-Dserial"
   or send NULL as the argument for the MPI Communicator.
+
+------------------------------------------------------------------------
+
+INPUT FILE:
+
+An input file "lusolver.inp" of the following form (the text between the
+<< and >>) is needed:
+
+<<
+begin
+  reducedsolvetype  jacobi
+  evaluate_norm     1
+  maxiter           10
+  atol              1e-12
+  rtol              1e-10
+  verbose           1
+end
+>>
+
+Keywords:
++ reducedsolvetype -> method to solve the reduced system
+                      "gather-and-solve" - direct solution using tridiagLUGS()
+                      "jacobi" - iterative solution using tridiagIterJacobi()
+evaluate_norm -> whether to evaluate error norm every iteration for the 
+                 iterative solver (turn this off for better scalability)
+maxiter -> maximum number of iterations for the iterative solver
+atol,rtol -> absolute and relative tolerances for the iterative solver
+verbose -> whether to print iteration and norm information on screen
 
 ------------------------------------------------------------------------
