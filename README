@@ -78,15 +78,15 @@ make install.
 TESTING:-
 
 The tridiagonal solvers can be tested by running bin/TRIDIAGLU that is 
-created by a successful compilation.
+created by a successful compilation. It runs a series of tests by gener-
+ating random tridiagonal matrices and right-hand sides.
 
 USING THESE FUNCTIONS:-
 
 Copy the header file include/tridiagLU.h to the include folder of
-the code calling these functions. Copy the files 
-src/TridiagLU/tridiagLU.c
-src/TridiagLU/tridiagLUGS.c
-to the the code's src directory and include them while compiling.
+the code calling these functions. Copy the *.c files in 
+src/TridiagLU/ to the the code's src directory and include them 
+while compiling.
 
 *OR*
 
@@ -124,7 +124,7 @@ FUNCTION ARGUMENTS:
 
 ------------------------------------------------------------------------
 
-INPUT FILE:
+INPUT FILE FOR TRIDIAGLU():
 
 An input file "lusolver.inp" of the following form (the text between the
 << and >>) is needed:
@@ -141,13 +141,31 @@ end
 >>
 
 Keywords:
-+ reducedsolvetype -> method to solve the reduced system
-                      "gather-and-solve" - direct solution using tridiagLUGS()
-                      "jacobi" - iterative solution using tridiagIterJacobi()
-evaluate_norm -> whether to evaluate error norm every iteration for the 
-                 iterative solver (turn this off for better scalability)
-maxiter -> maximum number of iterations for the iterative solver
-atol,rtol -> absolute and relative tolerances for the iterative solver
-verbose -> whether to print iteration and norm information on screen
++ reducedsolvetype  -> method to solve the reduced system
+                       "gather-and-solve" - direct solution using tridiagLUGS()
+                       "jacobi" - iterative solution using tridiagIterJacobi()
++ evaluate_norm     -> whether to evaluate error norm every iteration for the 
+                       iterative solver (turn this off for better scalability)
++ maxiter           -> maximum number of iterations for the iterative solver
++ atol,rtol         -> absolute and relative tolerances for the iterative 
+                       solver
++ verbose           -> whether to print iteration and norm information on 
+                       screen
+
+------------------------------------------------------------------------
+
+INPUT FILE FOR THE TEST FUNCTION:
+
+An input file "input" is required with three integers:
+- Global size of the system
+- Number of systems
+- Number of solves for walltime measurement
+
+Eg:
+<<
+1000  20  50
+>>
+
+i.e. solve 20 systems of size 1000, 50 times.
 
 ------------------------------------------------------------------------
