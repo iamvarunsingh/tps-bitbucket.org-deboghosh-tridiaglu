@@ -28,7 +28,11 @@ int main(int argc, char *argv[])
   /* If compiled in serial, run the serial tests                   */
   /* read in size of system, number of system and number of solves */
   FILE *in; in=fopen("input","r");
-  fscanf (in,"%d %d %d",&N,&Ns,&NRuns);
+  ierr = fscanf (in,"%d %d %d",&N,&Ns,&NRuns);
+  if (ierr != 3) {
+    fprintf(stderr,"Invalid input file.\n");
+    return(0);
+  }
   fclose(in);
   /* call the test function */
   ierr = main_serial(N,Ns);
@@ -46,7 +50,11 @@ int main(int argc, char *argv[])
   
   if (!rank) {
     FILE *in; in=fopen("input","r");
-    fscanf (in,"%d %d %d",&N,&Ns,&NRuns);
+    ierr = fscanf (in,"%d %d %d",&N,&Ns,&NRuns); 
+    if (ierr != 3) {
+      fprintf(stderr,"Invalid input file.\n");
+      return(0);
+    }
     fclose(in);
   }
   /* Broadcast the input values to all the processes */
