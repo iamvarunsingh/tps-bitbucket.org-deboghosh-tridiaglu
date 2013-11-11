@@ -88,7 +88,7 @@ typedef struct _tridiagLU_ {
 
 } TridiagLU;
 
-int tridiagLU         (double**,double**,double**,double**,int,int,void*,void*);
-int tridiagLUGS       (double**,double**,double**,double**,int,int,void*,void*);
-int tridiagIterJacobi (double**,double**,double**,double**,int,int,void*,void*);
+int tridiagLU         (double*,double*,double*,double*,int,int,void*,void*);
+int tridiagLUGS       (double*,double*,double*,double*,int,int,void*,void*);
+int tridiagIterJacobi (double*,double*,double*,double*,int,int,void*,void*);
 int tridiagLUInit     (void*,void*);

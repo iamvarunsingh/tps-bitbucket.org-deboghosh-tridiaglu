@@ -7,16 +7,16 @@
 #include <tridiagLU.h>
 
 /* Function declarations */
-static void   CopyArray       (double**,double**,int,int);
+static void   CopyArray       (double*,double*,int,int);
 #ifdef serial
 static int    main_serial     (int,int);
-static int    test_serial     (int,int,int(*)(double**,double**,double**,double**,int,int,void*,void*));
-static double CalculateError  (double**,double**,double**,double**,double**,int,int);
+static int    test_serial     (int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
+static double CalculateError  (double*,double*,double*,double*,double*,int,int);
 #else
 static int    main_mpi        (int,int,int,int,int);
-static int    test_mpi        (int,int,int,int,int,int,int(*)(double**,double**,double**,double**,int,int,void*,void*));
+static int    test_mpi        (int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
 static int    partition1D     (int,int,int,int*);
-static double CalculateError  (double**,double**,double**,double**,double**,int,int,int,int);
+static double CalculateError  (double*,double*,double*,double*,double*,int,int,int,int);
 #endif
 
 int main(int argc, char *argv[])
@@ -43,8 +43,8 @@ int main(int argc, char *argv[])
   /* If compiled in parallel, run the MPI tests                    */
   int rank,nproc;
   MPI_Init(&argc,&argv);
-  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
   MPI_Comm_size(MPI_COMM_WORLD,&nproc);
+  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
   
   /* read in size of system, number of system and number of solves */
   
@@ -98,7 +98,7 @@ int main_serial(int N,int Ns)
     THIS FUNCTION TESTS THE SERIAL IMPLEMENTATION OF A
     TRIDIAGONAL SOLVER
 */
-int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**,int,int,void*,void*))
+int test_serial(int N,int Ns,int (*LUSolver)(double*,double*,double*,double*,int,int,void*,void*))
 {
   int     d,i,ierr=0;
   double  error;
@@ -108,16 +108,16 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
   ierr = tridiagLUInit(&context,NULL); if (ierr) return(ierr);
 
   /* Variable declarations */
-  double **a1;    /* sub-diagonal                               */
-  double **b1;    /* diagonal                                   */
-  double **c1;    /* super-diagonal                             */
-  double **x;     /* right hand side, will contain the solution */ 
+  double *a1;    /* sub-diagonal                               */
+  double *b1;    /* diagonal                                   */
+  double *c1;    /* super-diagonal                             */
+  double *x;     /* right hand side, will contain the solution */ 
 
   /* 
     Since a,b,c and x are not preserved, declaring variables to
     store a copy of them to calculate error after the solve
   */
-  double **a2,**b2,**c2,**y;
+  double *a2,*b2,*c2,*y;
 
   /* Initialize random number generator */
   srand(time(NULL));
@@ -127,24 +127,14 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
     Ns -> number of systems
     N  -> size of each system
   */
-  a1 = (double**) calloc (Ns,sizeof(double*));
-  b1 = (double**) calloc (Ns,sizeof(double*));
-  c1 = (double**) calloc (Ns,sizeof(double*));
-  a2 = (double**) calloc (Ns,sizeof(double*));
-  b2 = (double**) calloc (Ns,sizeof(double*));
-  c2 = (double**) calloc (Ns,sizeof(double*));
-  x  = (double**) calloc (Ns,sizeof(double*));
-  y  = (double**) calloc (Ns,sizeof(double*));
-  for (d = 0; d < Ns; d++) {
-    a1[d] = (double*) calloc (N,sizeof(double));
-    b1[d] = (double*) calloc (N,sizeof(double));
-    c1[d] = (double*) calloc (N,sizeof(double));
-    a2[d] = (double*) calloc (N,sizeof(double));
-    b2[d] = (double*) calloc (N,sizeof(double));
-    c2[d] = (double*) calloc (N,sizeof(double));
-    x[d]  = (double*) calloc (N,sizeof(double));
-    y[d]  = (double*) calloc (N,sizeof(double));
-  }
+  a1 = (double*) calloc (N*Ns,sizeof(double));
+  b1 = (double*) calloc (N*Ns,sizeof(double));
+  c1 = (double*) calloc (N*Ns,sizeof(double));
+  a2 = (double*) calloc (N*Ns,sizeof(double));
+  b2 = (double*) calloc (N*Ns,sizeof(double));
+  c2 = (double*) calloc (N*Ns,sizeof(double));
+  x  = (double*) calloc (N*Ns,sizeof(double));
+  y  = (double*) calloc (N*Ns,sizeof(double));
 
   /* 
     TEST 1: Solution of an identity matrix with random
@@ -158,12 +148,13 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
   */
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < N; i++) {
-      a1[d][i] = 0.0;
-      b1[d][i] = 1.0;
-      c1[d][i] = 0.0;
-      x [d][i] = rand();
+      a1[i*Ns+d] = 0.0;
+      b1[i*Ns+d] = 1.0;
+      c1[i*Ns+d] = 0.0;
+      x [i*Ns+d] = ((double) rand()) / ((double) RAND_MAX);
     }
   }
+
 
   /*
     Copy the original values to calculate error later
@@ -195,10 +186,10 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
   */
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < N; i++) {
-      a1[d][i] = 0.0;
-      b1[d][i] = 100.0;
-      c1[d][i] = (i == N-1 ? 0 : 0.5);
-      x [d][i] = 1.0;
+      a1[i*Ns+d] = 0.0;
+      b1[i*Ns+d] = 100.0;
+      c1[i*Ns+d] = (i == N-1 ? 0 : 0.5);
+      x [i*Ns+d] = 1.0;
     }
   }
 
@@ -233,10 +224,10 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
   */
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < N; i++) {
-      a1[d][i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
-      b1[d][i] = 100.0*(1.0+((double) rand()) / ((double) RAND_MAX));
-      c1[d][i] = (i == N-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
-      x [d][i] = ((double) rand()) / ((double) RAND_MAX);
+      a1[i*Ns+d] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+      b1[i*Ns+d] = 100.0*(1.0+((double) rand()) / ((double) RAND_MAX));
+      c1[i*Ns+d] = (i == N-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+      x [i*Ns+d] = ((double) rand()) / ((double) RAND_MAX);
     }
   }
 
@@ -262,16 +253,6 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
   /* 
     DEALLOCATE ALL ARRAYS
   */
-  for (d = 0; d < Ns; d++) {
-    free(a1[d]);
-    free(b1[d]);
-    free(c1[d]);
-    free(a2[d]);
-    free(b2[d]);
-    free(c2[d]);
-    free(x[d]);
-    free(y[d]);
-  }
   free(a1);
   free(b1);
   free(c1);
@@ -294,15 +275,15 @@ int test_serial(int N,int Ns,int (*LUSolver)(double**,double**,double**,double**
 int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
 {
   int ierr = 0;
-/*
+
   if (!rank) printf("Testing MPI tridiagLUGS() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLUGS); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
-
+  
   if (!rank) printf("Testing MPI tridiagIterJacobi() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagIterJacobi); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
-*/
+
   if (!rank) printf("Testing MPI tridiagLU() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,&tridiagLU); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
@@ -316,23 +297,23 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
     TRIDIAGONAL SOLVER
 */
 int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
-             int(*LUSolver)(double**,double**,double**,double**,int,int,void*,void*))
+             int(*LUSolver)(double*,double*,double*,double*,int,int,void*,void*))
 {
   int       i,d,ierr=0,nlocal;
   double    error,total_error;
   MPI_Comm  world;
   TridiagLU context;
   /* Variable declarations */
-  double **a1;    /* sub-diagonal                               */
-  double **b1;    /* diagonal                                   */
-  double **c1;    /* super-diagonal                             */
-  double **x;     /* right hand side, will contain the solution */ 
+  double *a1;    /* sub-diagonal                               */
+  double *b1;    /* diagonal                                   */
+  double *c1;    /* super-diagonal                             */
+  double *x;     /* right hand side, will contain the solution */ 
 
   /* 
     Since a,b,c and x are not preserved, declaring variables to
     store a copy of them to calculate error after the solve
   */
-  double **a2,**b2,**c2,**y;
+  double *a2,*b2,*c2,*y;
 
   /* Creating a duplicate communicator */
   MPI_Comm_dup(MPI_COMM_WORLD,&world);
@@ -356,24 +337,15 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
     Ns      -> number of systems
     nlocal  -> local size of each system
   */
-  a1 = (double**) calloc (Ns,sizeof(double*));
-  b1 = (double**) calloc (Ns,sizeof(double*));
-  c1 = (double**) calloc (Ns,sizeof(double*));
-  a2 = (double**) calloc (Ns,sizeof(double*));
-  b2 = (double**) calloc (Ns,sizeof(double*));
-  c2 = (double**) calloc (Ns,sizeof(double*));
-  x  = (double**) calloc (Ns,sizeof(double*));
-  y  = (double**) calloc (Ns,sizeof(double*));
-  for (d = 0; d < Ns; d++) {
-    a1[d] = (double*) calloc (nlocal,sizeof(double));
-    b1[d] = (double*) calloc (nlocal,sizeof(double));
-    c1[d] = (double*) calloc (nlocal,sizeof(double));
-    a2[d] = (double*) calloc (nlocal,sizeof(double));
-    b2[d] = (double*) calloc (nlocal,sizeof(double));
-    c2[d] = (double*) calloc (nlocal,sizeof(double));
-    x [d] = (double*) calloc (nlocal,sizeof(double));
-    y [d] = (double*) calloc (nlocal,sizeof(double));
-  }
+  a1 = (double*) calloc (Ns*nlocal,sizeof(double));
+  b1 = (double*) calloc (Ns*nlocal,sizeof(double));
+  c1 = (double*) calloc (Ns*nlocal,sizeof(double));
+  a2 = (double*) calloc (Ns*nlocal,sizeof(double));
+  b2 = (double*) calloc (Ns*nlocal,sizeof(double));
+  c2 = (double*) calloc (Ns*nlocal,sizeof(double));
+  x  = (double*) calloc (Ns*nlocal,sizeof(double));
+  y  = (double*) calloc (Ns*nlocal,sizeof(double));
+
 
   /*
       TESTING THE LU SOLVER
@@ -392,10 +364,10 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   */
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < nlocal; i++) {
-      a1[d][i] = 0.0;
-      b1[d][i] = 1.0;
-      c1[d][i] = 0.0;
-      x [d][i] = rand();
+      a1[i*Ns+d] = 0.0;
+      b1[i*Ns+d] = 1.0;
+      c1[i*Ns+d] = 0.0;
+      x [i*Ns+d] = rand();
     }
   }
 
@@ -432,11 +404,11 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   */
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < nlocal; i++) {
-      a1[d][i] = 0.0;
-      b1[d][i] = 400.0;
-      if (rank == nproc-1) c1[d][i] = (i == nlocal-1 ? 0 : 0.5);
-      else                 c1[d][i] = 0.5;
-      x[d][i]  = 1.0;
+      a1[i*Ns+d] = 0.0;
+      b1[i*Ns+d] = 400.0;
+      if (rank == nproc-1) c1[i*Ns+d] = (i == nlocal-1 ? 0 : 0.5);
+      else                 c1[i*Ns+d] = 0.5;
+      x[i*Ns+d]  = 1.0;
     }
   }
 
@@ -474,12 +446,12 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   */
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < nlocal; i++) {
-      if (!rank )           a1[d][i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
-      else                  a1[d][i] = ((double) rand()) / ((double) RAND_MAX);
-      b1[d][i] = 100.0*(1.0 + ((double) rand()) / ((double) RAND_MAX));
-      if (rank == nproc-1)  c1[d][i] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
-      else                  c1[d][i] = ((double) rand()) / ((double) RAND_MAX);
-      x[d][i]  = ((double) rand()) / ((double) RAND_MAX);
+      if (!rank )           a1[i*Ns+d] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+      else                  a1[i*Ns+d] = ((double) rand()) / ((double) RAND_MAX);
+      b1[i*Ns+d] = 100.0*(1.0 + ((double) rand()) / ((double) RAND_MAX));
+      if (rank == nproc-1)  c1[i*Ns+d] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+      else                  c1[i*Ns+d] = ((double) rand()) / ((double) RAND_MAX);
+      x[i*Ns+d]  = ((double) rand()) / ((double) RAND_MAX);
     }
   }
 
@@ -524,12 +496,12 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
     */
     for (d = 0; d < Ns; d++) {
       for (i = 0; i < nlocal; i++) {
-        if (!rank )           a1[d][i] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
-        else                  a1[d][i] = ((double) rand()) / ((double) RAND_MAX);
-        b1[d][i] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
-        if (rank == nproc-1)  c1[d][i] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
-        else                  c1[d][i] = ((double) rand()) / ((double) RAND_MAX);
-        x[d][i]  = ((double) rand()) / ((double) RAND_MAX);
+        if (!rank )           a1[i*Ns+d] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+        else                  a1[i*Ns+d] = ((double) rand()) / ((double) RAND_MAX);
+        b1[i*Ns+d] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
+        if (rank == nproc-1)  c1[i*Ns+d] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+        else                  c1[i*Ns+d] = ((double) rand()) / ((double) RAND_MAX);
+        x[i*Ns+d]  = ((double) rand()) / ((double) RAND_MAX);
       }
     }
 
@@ -601,16 +573,6 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   /* 
     DEALLOCATE ALL ARRAYS
   */
-  for (d = 0; d < Ns; d++) {
-    free(a1[d]);
-    free(b1[d]);
-    free(c1[d]);
-    free(a2[d]);
-    free(b2[d]);
-    free(c2[d]);
-    free(x [d]);
-    free(y [d]);
-  }
   free(a1);
   free(b1);
   free(c1);
@@ -632,12 +594,12 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
 /*
   Function to copy the values of one 2D array into another
 */
-void CopyArray(double **x,double **y,int N,int Ns)
+void CopyArray(double *x,double *y,int N,int Ns)
 {
   int i,d;
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < N; i++) {
-      y[d][i] = x[d][i];
+      y[i*Ns+d] = x[i*Ns+d];
     }
   }
   return;
@@ -648,7 +610,7 @@ void CopyArray(double **x,double **y,int N,int Ns)
 */
 #ifdef serial
 
-double CalculateError(double **a,double **b,double **c,double **y,double **x,
+double CalculateError(double *a,double *b,double *c,double *y,double *x,
                       int N,int Ns)
 {
   int i,d;
@@ -656,9 +618,9 @@ double CalculateError(double **a,double **b,double **c,double **y,double **x,
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < N; i++) {
       double val;
-      if (i == 0)         val = y[d][i] - (b[d][i]*x[d][i]+c[d][i]*x[d][i+1]);
-      else if (i == N-1)  val = y[d][i] - (a[d][i]*x[d][i-1]+b[d][i]*x[d][i]);
-      else                val = y[d][i] - (a[d][i]*x[d][i-1]+b[d][i]*x[d][i]+c[d][i]*x[d][i+1]);
+      if (i == 0)         val = y[i*Ns+d] - (b[i*Ns+d]*x[i*Ns+d]+c[i*Ns+d]*x[(i+1)*Ns+d]);
+      else if (i == N-1)  val = y[i*Ns+d] - (a[i*Ns+d]*x[(i-1)*Ns+d]+b[i*Ns+d]*x[i*Ns+d]);
+      else                val = y[i*Ns+d] - (a[i*Ns+d]*x[(i-1)*Ns+d]+b[i*Ns+d]*x[i*Ns+d]+c[i*Ns+d]*x[(i+1)*Ns+d]);
       error += val * val;
     }
   }
@@ -667,7 +629,7 @@ double CalculateError(double **a,double **b,double **c,double **y,double **x,
 
 #else
 
-double CalculateError(double **a,double **b,double **c,double **y,double **x,
+double CalculateError(double *a,double *b,double *c,double *y,double *x,
                       int N,int Ns,int rank,int nproc)
 {
   double        error = 0;
@@ -678,8 +640,8 @@ double CalculateError(double **a,double **b,double **c,double **y,double **x,
     xp1 = 0;
     if (nproc > 1) {
       MPI_Request request = MPI_REQUEST_NULL;
-      if (rank != nproc-1)  MPI_Irecv(&xp1    ,1,MPI_DOUBLE,rank+1,1738,MPI_COMM_WORLD,&request);
-      if (rank)             MPI_Send(&x[d][0],1,MPI_DOUBLE,rank-1,1738,MPI_COMM_WORLD);
+      if (rank != nproc-1)  MPI_Irecv(&xp1,1,MPI_DOUBLE,rank+1,1738,MPI_COMM_WORLD,&request);
+      if (rank)             MPI_Send(&x[d],1,MPI_DOUBLE,rank-1,1738,MPI_COMM_WORLD);
       MPI_Wait(&request,MPI_STATUS_IGNORE);
     }
   
@@ -687,19 +649,19 @@ double CalculateError(double **a,double **b,double **c,double **y,double **x,
     if (nproc > 1) {
       MPI_Request request = MPI_REQUEST_NULL;
       if (rank)             MPI_Irecv(&xm1,1,MPI_DOUBLE,rank-1,1739,MPI_COMM_WORLD,&request);
-      if (rank != nproc-1)  MPI_Send(&x[d][N-1],1,MPI_DOUBLE,rank+1,1739,MPI_COMM_WORLD);
+      if (rank != nproc-1)  MPI_Send(&x[d+(N-1)*Ns],1,MPI_DOUBLE,rank+1,1739,MPI_COMM_WORLD);
       MPI_Wait(&request,MPI_STATUS_IGNORE);
     }
 
     error = 0;
     for (i = 0; i < N; i++) {
       double val = 0;
-      if (i == 0)    val += a[d][i]*xm1;
-      else           val += a[d][i]*x[d][i-1];
-      val += b[d][i]*x[d][i];
-      if (i == N-1)  val += c[d][i]*xp1;
-      else           val += c[d][i]*x[d][i+1];
-      val = y[d][i] - val;
+      if (i == 0)    val += a[i*Ns+d]*xm1;
+      else           val += a[i*Ns+d]*x[(i-1)*Ns+d];
+      val += b[i*Ns+d]*x[i*Ns+d];
+      if (i == N-1)  val += c[i*Ns+d]*xp1;
+      else           val += c[i*Ns+d]*x[(i+1)*Ns+d];
+      val = y[i*Ns+d] - val;
       error += val * val;
     }
   }
