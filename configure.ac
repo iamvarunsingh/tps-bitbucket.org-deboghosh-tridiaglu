@@ -32,7 +32,7 @@ else
   CC=$MPICC
 fi
 
-CFLAGS="$CFLAGS -I/opt/local/include -I$includedir"
+CFLAGS="$CFLAGS -I/opt/local/include -I$includedir -std=c99"
 LDFLAGS="$LDFLAGS -L/opt/local/lib"
 LIBS="$LIBS -lm"
 
