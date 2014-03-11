@@ -53,18 +53,18 @@ int blocktridiagLU(double *a,double *b,double *c,double *x,
   for (i = istart; i < iend; i++) {
     double binv[bs2], factor[bs2];
     for (d = 0; d < ns; d++) {
-      MatrixInvert           (b+((i-1)*ns+d)*bs2,binv,bs);
-      MatrixMultiply         (a+(i*ns+d)*bs2,binv,factor,bs);
-      MatrixMultiplySubtract (b+(i*ns+d)*bs2,factor,c+((i-1)*ns+d)*bs2,bs);
-      MatrixZero             (a+(i*ns+d)*bs2,bs);
-      MatrixMultiplySubtract (a+(i*ns+d)*bs2,factor,a+((i-1)*ns+d)*bs2,bs);
-      MatVecMultiplySubtract (x+(i*ns+d)*bs ,factor,x+((i-1)*ns+d)*bs ,bs);
+      _MatrixInvert_           (b+((i-1)*ns+d)*bs2,binv,bs);
+      _MatrixMultiply_         (a+(i*ns+d)*bs2,binv,factor,bs);
+      _MatrixMultiplySubtract_ (b+(i*ns+d)*bs2,factor,c+((i-1)*ns+d)*bs2,bs);
+      _MatrixZero_             (a+(i*ns+d)*bs2,bs);
+      _MatrixMultiplySubtract_ (a+(i*ns+d)*bs2,factor,a+((i-1)*ns+d)*bs2,bs);
+      _MatVecMultiplySubtract_ (x+(i*ns+d)*bs ,factor,x+((i-1)*ns+d)*bs ,bs);
       if (rank) {
-        MatrixMultiply         (c+d*bs2,binv,factor,bs);
-        MatrixZero             (c+d*bs2,bs);
-        MatrixMultiplySubtract (c+d*bs2,factor,c+((i-1)*ns+d)*bs2,bs);
-        MatrixMultiplySubtract (b+d*bs2,factor,a+((i-1)*ns+d)*bs2,bs);
-        MatVecMultiplySubtract (x+d*bs ,factor,x+((i-1)*ns+d)*bs ,bs);
+        _MatrixMultiply_         (c+d*bs2,binv,factor,bs);
+        _MatrixZero_             (c+d*bs2,bs);
+        _MatrixMultiplySubtract_ (c+d*bs2,factor,c+((i-1)*ns+d)*bs2,bs);
+        _MatrixMultiplySubtract_ (b+d*bs2,factor,a+((i-1)*ns+d)*bs2,bs);
+        _MatVecMultiplySubtract_ (x+d*bs ,factor,x+((i-1)*ns+d)*bs ,bs);
       }
     }
   }
@@ -104,19 +104,19 @@ int blocktridiagLU(double *a,double *b,double *c,double *x,
       }
       for (i=0; i<bs; i++) xm1[i] = recvbuf[(d*nvar+3)*bs2+i];
       double factor[bs2], binv[bs2];
-      MatrixInvert           (bm1,binv,bs);
-      MatrixMultiply         (binv,a+d*bs2,factor,bs);
-      MatrixMultiplySubtract (b+d*bs2,factor,cm1,bs);
-      MatrixZero             (a+d*bs2,bs);
-      MatrixMultiplySubtract (a+d*bs2,factor,am1,bs);
-      MatVecMultiplySubtract (x+d*bs ,factor,xm1,bs);
+      _MatrixInvert_           (bm1,binv,bs);
+      _MatrixMultiply_         (binv,a+d*bs2,factor,bs);
+      _MatrixMultiplySubtract_ (b+d*bs2,factor,cm1,bs);
+      _MatrixZero_             (a+d*bs2,bs);
+      _MatrixMultiplySubtract_ (a+d*bs2,factor,am1,bs);
+      _MatVecMultiplySubtract_ (x+d*bs ,factor,xm1,bs);
       
-      MatrixInvert           (b+((n-1)*ns+d)*bs2,binv,bs); if (ierr) return(ierr);
-      MatrixMultiply         (binv,c+d*bs2,factor,bs);
-      MatrixMultiplySubtract (b+d*bs2,factor,a+((n-1)*ns+d)*bs2,bs);
-      MatrixZero             (c+d*bs2,bs);
-      MatrixMultiplySubtract (c+d*bs2,factor,c+((n-1)*ns+d)*bs2,bs);
-      MatVecMultiplySubtract (x+d*bs ,factor,x+((n-1)*ns+d)*bs ,bs);
+      _MatrixInvert_           (b+((n-1)*ns+d)*bs2,binv,bs); if (ierr) return(ierr);
+      _MatrixMultiply_         (binv,c+d*bs2,factor,bs);
+      _MatrixMultiplySubtract_ (b+d*bs2,factor,a+((n-1)*ns+d)*bs2,bs);
+      _MatrixZero_             (c+d*bs2,bs);
+      _MatrixMultiplySubtract_ (c+d*bs2,factor,c+((n-1)*ns+d)*bs2,bs);
+      _MatVecMultiplySubtract_ (x+d*bs ,factor,x+((n-1)*ns+d)*bs ,bs);
     }
   }
   free(sendbuf);
@@ -171,19 +171,19 @@ int blocktridiagLU(double *a,double *b,double *c,double *x,
 
   for (d = 0; d < ns; d++) {
     double binv[bs2],xt[bs];
-    MatrixInvert           (b+(istart*ns+d)*bs2,binv,bs);
-    MatVecMultiplySubtract (x+(istart*ns+d)*bs ,a+(istart*ns+d)*bs2,x  +d*bs,bs);
-    MatVecMultiplySubtract (x+(istart*ns+d)*bs ,c+(istart*ns+d)*bs2,xp1+d*bs,bs);
-    MatVecMultiply         (binv,x+(istart*ns+d)*bs,xt,bs);
+    _MatrixInvert_           (b+(istart*ns+d)*bs2,binv,bs);
+    _MatVecMultiplySubtract_ (x+(istart*ns+d)*bs ,a+(istart*ns+d)*bs2,x  +d*bs,bs);
+    _MatVecMultiplySubtract_ (x+(istart*ns+d)*bs ,c+(istart*ns+d)*bs2,xp1+d*bs,bs);
+    _MatVecMultiply_         (binv,x+(istart*ns+d)*bs,xt,bs);
     for (j=0; j<bs; j++)   x[(istart*ns+d)*bs+j]=xt[j];
   }
   for (i = istart-1; i > iend-1; i--) {
     for (d = 0; d < ns; d++) {
       double binv[bs2],xt[bs];
-      MatrixInvert           (b+(i*ns+d)*bs2,binv,bs);
-      MatVecMultiplySubtract (x+(i*ns+d)*bs ,c+(i*ns+d)*bs2,x+((i+1)*ns+d)*bs,bs);
-      MatVecMultiplySubtract (x+(i*ns+d)*bs ,a+(i*ns+d)*bs2,x+d*bs,bs);
-      MatVecMultiply         (binv,x+(i*ns+d)*bs,xt,bs);
+      _MatrixInvert_           (b+(i*ns+d)*bs2,binv,bs);
+      _MatVecMultiplySubtract_ (x+(i*ns+d)*bs ,c+(i*ns+d)*bs2,x+((i+1)*ns+d)*bs,bs);
+      _MatVecMultiplySubtract_ (x+(i*ns+d)*bs ,a+(i*ns+d)*bs2,x+d*bs,bs);
+      _MatVecMultiply_         (binv,x+(i*ns+d)*bs,xt,bs);
       for (j=0; j<bs; j++)   x[(i*ns+d)*bs+j] = xt[j];
     }
   }

@@ -1,106 +1,81 @@
 #include <stdio.h>
 
-#if !defined(INLINE)
-# define INLINE inline
-#endif
-
-INLINE int MatrixZero              (double*,int);
-INLINE int MatrixInvert            (double*,double*,int);
-INLINE int MatrixMultiply          (double*,double*,double*,int);
-INLINE int MatrixMultiplySubtract  (double*,double*,double*,int);
-INLINE int MatVecMultiply          (double*,double*,double*,int);
-INLINE int MatVecMultiplySubtract  (double*,double*,double*,int);
-
-INLINE int MatrixZero(double *A, int N)
-{
-  int i;
-  for (i=0; i<N*N; i++) A[i] = 0.0;
-  return(0);
-}
+#define _MatrixZero_(A,N) \
+  { \
+    int arraycounter; \
+    for (arraycounter=0; arraycounter<(N)*(N); arraycounter++) *((A)+arraycounter) = 0.0; \
+  }
 
 /* C = AB */
-INLINE int MatrixMultiply(double *A, double *B, double *C, int N)
-{
-  int i,j,k;
-  for (i=0; i<N; i++) {
-    for (j=0; j<N; j++) {
-      C[i*N+j] = 0;
-      for (k=0; k<N; k++) C[i*N+j] += (A[i*N+k] * B[k*N+j]);
-    }
+#define _MatrixMultiply_(A,B,C,N) \
+  { \
+    int matopsi,matopsj,matopsk; \
+    for (matopsi=0; matopsi<(N); matopsi++) \
+      for (matopsj=0; matopsj<(N); matopsj++) { \
+        *((C)+matopsi*(N)+matopsj) = 0; \
+        for (matopsk=0; matopsk<(N); matopsk++) *((C)+matopsi*(N)+matopsj) += ((*((A)+matopsi*(N)+matopsk)) * (*((B)+matopsk*(N)+matopsj))); \
+      } \
   }
-  return(0);
-}
 
 
 /* C = C - AB */
-INLINE int MatrixMultiplySubtract(double *C, double *A, double *B, int N)
-{
-  int i,j,k;
-  for (i=0; i<N; i++) {
-    for (j=0; j<N; j++) {
-      for (k=0; k<N; k++) C[i*N+j] -= (A[i*N+k] * B[k*N+j]);
-    }
-  }
-  return(0);
-}
+#define _MatrixMultiplySubtract_(C,A,B,N) \
+  { \
+    int matopsi,matopsj,matopsk; \
+    for (matopsi=0; matopsi<(N); matopsi++) \
+      for (matopsj=0; matopsj<(N); matopsj++) \
+        for (matopsk=0; matopsk<(N); matopsk++) *((C)+matopsi*(N)+matopsj) -= ((*((A)+matopsi*(N)+matopsk)) * (*((B)+matopsk*(N)+matopsj))); \
+  } \
 
 /* y = Ax */
-INLINE int MatVecMultiply(double *A, double *x, double *y, int N)
-{
-  int i,j;
-  for (i=0; i<N; i++) {
-    y[i] = 0;
-    for (j=0; j<N; j++) y[i] += (A[i*N+j] * x[j]);
+#define _MatVecMultiply_(A,x,y,N) \
+  { \
+    int matopsi,matopsj; \
+    for (matopsi=0; matopsi<(N); matopsi++) { \
+      *((y)+matopsi) = 0; \
+      for (matopsj=0; matopsj<(N); matopsj++) *((y)+matopsi) += (*((A)+matopsi*N+matopsj) * *((x)+matopsj)); \
+    } \
   }
-  return(0);
-}
 
 /* y = y - Ax */
-INLINE int MatVecMultiplySubtract(double *y,double *A, double *x, int N)
-{
-  int i,j;
-  for (i=0; i<N; i++) {
-    for (j=0; j<N; j++) y[i] -= (A[i*N+j] * x[j]);
+#define _MatVecMultiplySubtract_(y,A,x,N) \
+  { \
+    int matopsi,matopsj; \
+    for (matopsi=0; matopsi<N; matopsi++) \
+      for (matopsj=0; matopsj<(N); matopsj++) *((y)+matopsi) -= (*((A)+matopsi*N+matopsj) * *((x)+matopsj)); \
   }
-  return(0);
-}
 
 /* B =A^{-1}                */
-INLINE int MatrixInvert(double *A, double *B, int N) 
-{
-  int i,j,k;
-  double factor, sum, Ac[N*N];
-
-  /* make a copy of A */
-  for (i=0; i<N*N; i++) Ac[i] = A[i];
-  
-  /* set B as the identity matrix */
-  for (i=0; i<N*N; i++) B[i] = 0.0;
-  for (i=0; i<N  ; i++) B[i*N+i] = 1.0;
-
-  /* LU Decomposition - Forward Sweep */
-  for (i=0; i<N-1; i++) {
-    if (Ac[i*N+i] == 0) {
-      fprintf(stderr,"Error in MatrixInvert(): Matrix is singular.\n");
-      return(0);
-    }
-    for (j=i+1; j<N; j++) {
-      factor = Ac[j*N+i]/Ac[i*N+i];
-      for (k=i+1; k<N; k++) Ac[j*N+k] -= (factor*Ac[i*N+k]);
-      for (k=0  ; k<N; k++) B[j*N+k] -= (factor*B[i*N+k]);
-    }
+#define _MatrixInvert_(A,B,N)  \
+  { \
+    int matopsi,matopsj,matopsk; \
+    double matopsfactor, matopssum, matopsAc[(N)*(N)]; \
+    \
+    /* make a copy of A */ \
+    for (matopsi=0; matopsi<(N)*(N); matopsi++) *(matopsAc+matopsi) = *((A)+matopsi); \
+    \
+    /* set B as the identity matrix */  \
+    for (matopsi=0; matopsi<(N)*(N); matopsi++) *((B)+matopsi)             = 0.0; \
+    for (matopsi=0; matopsi<(N)    ; matopsi++) *((B)+matopsi*(N)+matopsi) = 1.0; \
+    \
+    /* LU Decomposition - Forward Sweep */ \
+    for (matopsi=0; matopsi<(N)-1; matopsi++) { \
+      if (*(matopsAc+matopsi*(N)+matopsi) == 0) fprintf(stderr,"Error in MatrixInvert(): Matrix is singular.\n"); \
+      for (matopsj=matopsi+1; matopsj<(N); matopsj++) { \
+        matopsfactor = *(matopsAc+matopsj*(N)+matopsi) / *(matopsAc+matopsi*(N)+matopsi); \
+        for (matopsk=matopsi+1; matopsk<(N); matopsk++) *(matopsAc+matopsj*(N)+matopsk) -= (matopsfactor * *(matopsAc +matopsi*(N)+matopsk)); \
+        for (matopsk=0; matopsk<matopsj; matopsk++) *((B)+matopsj*(N)+matopsk) -= (matopsfactor * *((B)+matopsi*(N)+matopsk)); \
+      } \
+    } \
+    \
+    /* LU Decomposition - Backward Sweep */ \
+    for (matopsi=(N)-1; matopsi>=0; matopsi--) { \
+      for (matopsk=0; matopsk<(N); matopsk++) { \
+        matopssum = 0.0; \
+        for (matopsj=matopsi+1; matopsj<(N); matopsj++) matopssum += (*(matopsAc+matopsi*(N)+matopsj) * *((B)+matopsj*(N)+matopsk)); \
+        *((B)+matopsi*(N)+matopsk) = (*((B)+matopsi*(N)+matopsk) - matopssum) / *(matopsAc+matopsi*(N)+matopsi); \
+      } \
+    } \
+    \
+    /* Done - B contains A^{-1} now */ \
   }
-
-  /* LU Decomposition - Backward Sweep */
-  for (i=N-1; i>=0; i--) {
-    for (k=0; k<N; k++) {
-      sum = 0.0;
-      for (j=i+1; j<N; j++) sum += (Ac[i*N+j]*B[j*N+k]);
-      B[i*N+k] = (B[i*N+k] - sum) / Ac[i*N+i];
-    }
-  }
-
-  /* Done - B contains A^{-1} now */
-
-  return(0);
-}

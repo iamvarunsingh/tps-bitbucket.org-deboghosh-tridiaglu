@@ -38,8 +38,8 @@ int blocktridiagIterJacobi(double *a,double *b,double *c,double *x,
   for (i=0; i<n; i++) {
     for (d=0; d<ns; d++) {
       double binv[bs2];
-      MatrixInvert    (b+(i*ns+d)*bs2,binv,bs);
-      MatVecMultiply  (binv,rhs+(i*ns+d)*bs,x+(i*ns+d)*bs,bs);
+      _MatrixInvert_    (b+(i*ns+d)*bs2,binv,bs);
+      _MatVecMultiply_  (binv,rhs+(i*ns+d)*bs,x+(i*ns+d)*bs,bs);
     }
   }
 
@@ -94,9 +94,9 @@ int blocktridiagIterJacobi(double *a,double *b,double *c,double *x,
       for (i=1; i<2; i++) {
         for (d=0; d<ns; d++) {
           double err[bs]; for (j=0; j<bs; j++) err[j] = rhs[(i*ns+d)*bs+j];
-          MatVecMultiplySubtract(err,a+(i*ns+d)*bs2,x+((i-1)*ns+d)*bs,bs);
-          MatVecMultiplySubtract(err,b+(i*ns+d)*bs2,x+((i  )*ns+d)*bs,bs);
-          MatVecMultiplySubtract(err,c+(i*ns+d)*bs2,x+((i+1)*ns+d)*bs,bs);
+          _MatVecMultiplySubtract_(err,a+(i*ns+d)*bs2,x+((i-1)*ns+d)*bs,bs);
+          _MatVecMultiplySubtract_(err,b+(i*ns+d)*bs2,x+((i  )*ns+d)*bs,bs);
+          _MatVecMultiplySubtract_(err,c+(i*ns+d)*bs2,x+((i+1)*ns+d)*bs,bs);
           for (j=0; j<bs; j++) norm += (err[j]*err[j]);
         }
       }
@@ -109,24 +109,24 @@ int blocktridiagIterJacobi(double *a,double *b,double *c,double *x,
       if (n > 1) {
         for (d=0; d<ns; d++) {
           double err[bs]; for (j=0; j<bs; j++) err[j] = rhs[d*bs+j];
-          MatVecMultiplySubtract(err,a+d*bs2,recvbufL+d*bs,bs);
-          MatVecMultiplySubtract(err,b+d*bs2,x+d*bs,bs);
-          MatVecMultiplySubtract(err,c+d*bs2,x+(ns+d)*bs,bs);
+          _MatVecMultiplySubtract_(err,a+d*bs2,recvbufL+d*bs,bs);
+          _MatVecMultiplySubtract_(err,b+d*bs2,x+d*bs,bs);
+          _MatVecMultiplySubtract_(err,c+d*bs2,x+(ns+d)*bs,bs);
           for (j=0; j<bs; j++) norm += (err[j]*err[j]);
         }
         for (d=0; d<ns; d++) {
           double err[bs]; for (j=0; j<bs; j++) err[j] = rhs[(d+ns*(n-1))*bs+j];
-          MatVecMultiplySubtract(err,a+(d+ns*(n-1))*bs2,x+(d+ns*(n-2))*bs,bs);
-          MatVecMultiplySubtract(err,b+(d+ns*(n-1))*bs2,x+(d+ns*(n-1))*bs,bs);
-          MatVecMultiplySubtract(err,c+(d+ns*(n-1))*bs2,recvbufR+d*bs,bs);
+          _MatVecMultiplySubtract_(err,a+(d+ns*(n-1))*bs2,x+(d+ns*(n-2))*bs,bs);
+          _MatVecMultiplySubtract_(err,b+(d+ns*(n-1))*bs2,x+(d+ns*(n-1))*bs,bs);
+          _MatVecMultiplySubtract_(err,c+(d+ns*(n-1))*bs2,recvbufR+d*bs,bs);
           for (j=0; j<bs; j++) norm += (err[j]*err[j]);
         }
       } else {
         for (d=0; d<ns; d++) {
           double err[bs]; for (j=0; j<bs; j++) err[j] = rhs[d*bs+j];
-          MatVecMultiplySubtract(err,a+d*bs2,recvbufL+d*bs,bs);
-          MatVecMultiplySubtract(err,b+d*bs2,x+d*bs,bs);
-          MatVecMultiplySubtract(err,c+d*bs2,recvbufR+d*bs,bs);
+          _MatVecMultiplySubtract_(err,a+d*bs2,recvbufL+d*bs,bs);
+          _MatVecMultiplySubtract_(err,b+d*bs2,x+d*bs,bs);
+          _MatVecMultiplySubtract_(err,c+d*bs2,recvbufR+d*bs,bs);
           for (j=0; j<bs; j++) norm += (err[j]*err[j]);
         }
       }
@@ -157,36 +157,36 @@ int blocktridiagIterJacobi(double *a,double *b,double *c,double *x,
         
         i = 0;    
         for (j=0; j<bs; j++) xt[j] = rhs[(i*ns+d)*bs+j];
-        MatVecMultiplySubtract(xt,a+(i*ns+d)*bs2,recvbufL+d*bs,bs);
-        MatVecMultiplySubtract(xt,c+(i*ns+d)*bs2,x+(d+ns*(i+1))*bs,bs);
-        MatrixInvert(b+(i*ns+d)*bs2,binv,bs);
-        MatVecMultiply(binv,xt,x+(i*ns+d)*bs,bs);
+        _MatVecMultiplySubtract_(xt,a+(i*ns+d)*bs2,recvbufL+d*bs,bs);
+        _MatVecMultiplySubtract_(xt,c+(i*ns+d)*bs2,x+(d+ns*(i+1))*bs,bs);
+        _MatrixInvert_(b+(i*ns+d)*bs2,binv,bs);
+        _MatVecMultiply_(binv,xt,x+(i*ns+d)*bs,bs);
 
         i = n-1;  
         for (j=0; j<bs; j++) xt[j] = rhs[(i*ns+d)*bs+j];
-        MatVecMultiplySubtract(xt,a+(i*ns+d)*bs2,x+(d+ns*(i-1))*bs,bs);
-        MatVecMultiplySubtract(xt,c+(i*ns+d)*bs2,recvbufR+d*bs,bs);
-        MatrixInvert(b+(i*ns+d)*bs2,binv,bs);
-        MatVecMultiply(binv,xt,x+(i*ns+d)*bs,bs);
+        _MatVecMultiplySubtract_(xt,a+(i*ns+d)*bs2,x+(d+ns*(i-1))*bs,bs);
+        _MatVecMultiplySubtract_(xt,c+(i*ns+d)*bs2,recvbufR+d*bs,bs);
+        _MatrixInvert_(b+(i*ns+d)*bs2,binv,bs);
+        _MatVecMultiply_(binv,xt,x+(i*ns+d)*bs,bs);
       }
       for (i=1; i<n-1; i++) {
         for (d=0; d<ns; d++) {
           double xt[bs],binv[bs2];
           for (j=0; j<bs; j++) xt[j] = rhs[(i*ns+d)*bs+j];
-          MatVecMultiplySubtract(xt,a+(i*ns+d)*bs2,x+(d+ns*(i-1))*bs,bs);
-          MatVecMultiplySubtract(xt,c+(i*ns+d)*bs2,x+(d+ns*(i+1))*bs,bs);
-          MatrixInvert(b+(i*ns+d)*bs2,binv,bs);
-          MatVecMultiply(binv,xt,x+(i*ns+d)*bs,bs);
+          _MatVecMultiplySubtract_(xt,a+(i*ns+d)*bs2,x+(d+ns*(i-1))*bs,bs);
+          _MatVecMultiplySubtract_(xt,c+(i*ns+d)*bs2,x+(d+ns*(i+1))*bs,bs);
+          _MatrixInvert_(b+(i*ns+d)*bs2,binv,bs);
+          _MatVecMultiply_(binv,xt,x+(i*ns+d)*bs,bs);
         }
       }
     } else {
       for (d=0; d<ns; d++) {
         double xt[bs],binv[bs2];
         for (j=0; j<bs; j++) xt[j] = rhs[d*bs+j];
-        MatVecMultiplySubtract(xt,a+d*bs2,recvbufL+d*bs,bs);
-        MatVecMultiplySubtract(xt,c+d*bs2,recvbufR+d*bs,bs);
-        MatrixInvert(b+d*bs2,binv,bs);
-        MatVecMultiply(binv,xt,x+d*bs,bs);
+        _MatVecMultiplySubtract_(xt,a+d*bs2,recvbufL+d*bs,bs);
+        _MatVecMultiplySubtract_(xt,c+d*bs2,recvbufR+d*bs,bs);
+        _MatrixInvert_(b+d*bs2,binv,bs);
+        _MatVecMultiply_(binv,xt,x+d*bs,bs);
       }
     }
 

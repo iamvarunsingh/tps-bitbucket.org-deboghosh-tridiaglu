@@ -848,9 +848,9 @@ double CalculateErrorBlock(double *a,double *b,double *c,double *y,double *x,
   for (d = 0; d < Ns; d++) {
     for (i = 0; i < N; i++) {
       double val[bs]; for (j=0; j<bs; j++) val[j] = y[(i*Ns+d)*bs+j];
-      MatVecMultiplySubtract(val,b+(i*Ns+d)*bs*bs,x+(i*Ns+d)*bs,bs);
-      if (i != 0)   MatVecMultiplySubtract(val,a+(i*Ns+d)*bs*bs,x+((i-1)*Ns+d)*bs,bs);
-      if (i != N-1) MatVecMultiplySubtract(val,c+(i*Ns+d)*bs*bs,x+((i+1)*Ns+d)*bs,bs);
+      _MatVecMultiplySubtract_(val,b+(i*Ns+d)*bs*bs,x+(i*Ns+d)*bs,bs);
+      if (i != 0)   _MatVecMultiplySubtract_(val,a+(i*Ns+d)*bs*bs,x+((i-1)*Ns+d)*bs,bs);
+      if (i != N-1) _MatVecMultiplySubtract_(val,c+(i*Ns+d)*bs*bs,x+((i+1)*Ns+d)*bs,bs);
       for (j=0; j<bs; j++) error += val[j] * val[j];
     }
   }
