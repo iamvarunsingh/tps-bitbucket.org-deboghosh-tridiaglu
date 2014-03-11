@@ -480,26 +480,29 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
 {
   int ierr = 0;
 
-  if (!rank) printf("Testing MPI tridiagLUGS()       with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  if (!rank) printf("\nTesting MPI tridiagLUGS()       with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLUGS); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
   
-  if (!rank) printf("Testing MPI tridiagIterJacobi() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  if (!rank) printf("\nTesting MPI tridiagIterJacobi() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagIterJacobi); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  if (!rank) printf("Testing MPI tridiagLU()         with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  if (!rank) printf("\nTesting MPI tridiagLU()         with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,&tridiagLU); if (ierr) return(ierr);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if (!rank) printf("-----------------------------------------------------------------\n");
   MPI_Barrier(MPI_COMM_WORLD);
 
   int bs;
   for (bs=1; bs <= MAX_BS; bs++) {
-    if (!rank) printf("Testing MPI blocktridiagIterJacobi() with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
+    if (!rank) printf("\nTesting MPI blocktridiagIterJacobi() with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
     ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,0,&blocktridiagIterJacobi); if(ierr) return(ierr);
     MPI_Barrier(MPI_COMM_WORLD);
   }
   for (bs=1; bs <= MAX_BS; bs++) {
-    if (!rank) printf("Testing MPI blocktridiagLU()         with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
+    if (!rank) printf("\nTesting MPI blocktridiagLU()         with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
     ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,1,&blocktridiagLU); if(ierr) return(ierr);
     MPI_Barrier(MPI_COMM_WORLD);
   }

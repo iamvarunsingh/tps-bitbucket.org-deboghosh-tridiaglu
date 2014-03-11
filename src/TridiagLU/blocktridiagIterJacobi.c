@@ -91,7 +91,7 @@ int blocktridiagIterJacobi(double *a,double *b,double *c,double *x,
     /* calculate error norm - interior */
     if (context->evaluate_norm) {
       norm = 0;
-      for (i=1; i<2; i++) {
+      for (i=1; i<n-1; i++) {
         for (d=0; d<ns; d++) {
           double err[bs]; for (j=0; j<bs; j++) err[j] = rhs[(i*ns+d)*bs+j];
           _MatVecMultiplySubtract_(err,a+(i*ns+d)*bs2,x+((i-1)*ns+d)*bs,bs);
