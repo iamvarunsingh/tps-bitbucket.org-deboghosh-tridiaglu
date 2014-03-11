@@ -56,7 +56,7 @@ INLINE int MatVecMultiply(double *A, double *x, double *y, int N)
 }
 
 /* y = y - Ax */
-INLINE int MatVecMultiplySubtract(double *A, double *x, double *y, int N)
+INLINE int MatVecMultiplySubtract(double *y,double *A, double *x, int N)
 {
   int i,j;
   for (i=0; i<N; i++) {
@@ -66,11 +66,13 @@ INLINE int MatVecMultiplySubtract(double *A, double *x, double *y, int N)
 }
 
 /* B =A^{-1}                */
-/* Note: A is not preserved */
 INLINE int MatrixInvert(double *A, double *B, int N) 
 {
   int i,j,k;
-  double factor, sum;
+  double factor, sum, Ac[N*N];
+
+  /* make a copy of A */
+  for (i=0; i<N*N; i++) Ac[i] = A[i];
   
   /* set B as the identity matrix */
   for (i=0; i<N*N; i++) B[i] = 0.0;
@@ -78,13 +80,13 @@ INLINE int MatrixInvert(double *A, double *B, int N)
 
   /* LU Decomposition - Forward Sweep */
   for (i=0; i<N-1; i++) {
-    if (A[i*N+i] == 0) {
+    if (Ac[i*N+i] == 0) {
       fprintf(stderr,"Error in MatrixInvert(): Matrix is singular.\n");
       return(0);
     }
     for (j=i+1; j<N; j++) {
-      factor = A[j*N+i]/A[i*N+i];
-      for (k=i+1; k<N; k++) A[j*N+k] -= (factor*A[i*N+k]);
+      factor = Ac[j*N+i]/Ac[i*N+i];
+      for (k=i+1; k<N; k++) Ac[j*N+k] -= (factor*Ac[i*N+k]);
       for (k=0  ; k<N; k++) B[j*N+k] -= (factor*B[i*N+k]);
     }
   }
@@ -93,8 +95,8 @@ INLINE int MatrixInvert(double *A, double *B, int N)
   for (i=N-1; i>=0; i--) {
     for (k=0; k<N; k++) {
       sum = 0.0;
-      for (j=i+1; j<N; j++) sum += (A[i*N+j]*B[j*N+k]);
-      B[i*N+k] = (B[i*N+k] - sum) / A[i*N+i];
+      for (j=i+1; j<N; j++) sum += (Ac[i*N+j]*B[j*N+k]);
+      B[i*N+k] = (B[i*N+k] - sum) / Ac[i*N+i];
     }
   }
 

@@ -54,13 +54,13 @@ int blocktridiagLU(double *a,double *b,double *c,double *x,
     double binv[bs2], factor[bs2];
     for (d = 0; d < ns; d++) {
       MatrixInvert           (b+((i-1)*ns+d)*bs2,binv,bs);
-      MatrixMultiply         (binv,a+(i*ns+d)*bs2,factor,bs);
+      MatrixMultiply         (a+(i*ns+d)*bs2,binv,factor,bs);
       MatrixMultiplySubtract (b+(i*ns+d)*bs2,factor,c+((i-1)*ns+d)*bs2,bs);
       MatrixZero             (a+(i*ns+d)*bs2,bs);
       MatrixMultiplySubtract (a+(i*ns+d)*bs2,factor,a+((i-1)*ns+d)*bs2,bs);
       MatVecMultiplySubtract (x+(i*ns+d)*bs ,factor,x+((i-1)*ns+d)*bs ,bs);
       if (rank) {
-        MatrixMultiply         (binv,c+d*bs2,factor,bs);
+        MatrixMultiply         (c+d*bs2,binv,factor,bs);
         MatrixZero             (c+d*bs2,bs);
         MatrixMultiplySubtract (c+d*bs2,factor,c+((i-1)*ns+d)*bs2,bs);
         MatrixMultiplySubtract (b+d*bs2,factor,a+((i-1)*ns+d)*bs2,bs);

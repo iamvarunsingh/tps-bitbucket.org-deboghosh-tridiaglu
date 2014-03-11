@@ -5,13 +5,20 @@
 #include <mpi.h>
 #endif
 #include <tridiagLU.h>
+#include <matops.h>
+
+/* Maximum block size to test */
+int MAX_BS = 5;
 
 /* Function declarations */
 static void   CopyArray       (double*,double*,int,int);
+static void   CopyArraySimple (double*,double*,int);
 #ifdef serial
-static int    main_serial     (int,int);
-static int    test_serial     (int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
-static double CalculateError  (double*,double*,double*,double*,double*,int,int);
+static int    main_serial         (int,int);
+static int    test_serial         (int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
+static int    test_block_serial   (int,int,int,int(*)(double*,double*,double*,double*,int,int,int,void*,void*));
+static double CalculateError      (double*,double*,double*,double*,double*,int,int);
+static double CalculateErrorBlock (double*,double*,double*,double*,double*,int,int,int);
 #else
 static int    main_mpi        (int,int,int,int,int);
 static int    test_mpi        (int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
@@ -89,6 +96,16 @@ int main_serial(int N,int Ns)
 
   printf("Testing serial tridiagLU() with N=%d, Ns=%d\n",N,Ns);
   ierr = test_serial(N,Ns,&tridiagLU); if(ierr) return(ierr);
+
+  int bs;
+  for (bs=1; bs <= MAX_BS; bs++) {
+    printf("Testing serial blocktridiagIterJacobi() with N=%d, Ns=%d, bs=%d\n",N,Ns,bs);
+    ierr = test_block_serial(N,Ns,bs,&blocktridiagIterJacobi); if(ierr) return(ierr);
+  }
+  for (bs=1; bs <= MAX_BS; bs++) {
+    printf("Testing serial blocktridiagLU() with N=%d, Ns=%d, bs=%d\n",N,Ns,bs);
+    ierr = test_block_serial(N,Ns,bs,&blocktridiagLU); if(ierr) return(ierr);
+  }
 
   /* Return */
   return(0);
@@ -248,6 +265,191 @@ int test_serial(int N,int Ns,int (*LUSolver)(double*,double*,double*,double*,int
     Calculate Error
   */
   error = CalculateError(a2,b2,c2,y,x,N,Ns);
+  printf("error=%E\n",error);
+
+  /* 
+    DEALLOCATE ALL ARRAYS
+  */
+  free(a1);
+  free(b1);
+  free(c1);
+  free(a2);
+  free(b2);
+  free(c2);
+  free(x);
+  free(y);
+
+  /* Return */
+  return(0);
+}
+
+/* 
+    THIS FUNCTION TESTS THE SERIAL IMPLEMENTATION OF A
+    BLOCK TRIDIAGONAL SOLVER
+*/
+int test_block_serial(int N,int Ns,int bs,int (*LUSolver)(double*,double*,double*,double*,int,int,int,void*,void*))
+{
+  int     d,i,j,k,ierr=0;
+  double  error;
+  TridiagLU context;
+
+  /* Initialize tridiagonal solver parameters */
+  ierr = tridiagLUInit(&context,NULL); if (ierr) return(ierr);
+
+  /* Variable declarations */
+  double *a1;    /* sub-diagonal                               */
+  double *b1;    /* diagonal                                   */
+  double *c1;    /* super-diagonal                             */
+  double *x;     /* right hand side, will contain the solution */ 
+
+  /* 
+    Since a,b,c and x are not preserved, declaring variables to
+    store a copy of them to calculate error after the solve
+  */
+  double *a2,*b2,*c2,*y;
+
+  /* Initialize random number generator */
+  srand(time(NULL));
+
+  /* 
+    Allocate arrays of dimension (Ns x N) 
+    Ns -> number of systems
+    N  -> size of each system
+  */
+  a1 = (double*) calloc (N*Ns*bs*bs,sizeof(double));
+  b1 = (double*) calloc (N*Ns*bs*bs,sizeof(double));
+  c1 = (double*) calloc (N*Ns*bs*bs,sizeof(double));
+  a2 = (double*) calloc (N*Ns*bs*bs,sizeof(double));
+  b2 = (double*) calloc (N*Ns*bs*bs,sizeof(double));
+  c2 = (double*) calloc (N*Ns*bs*bs,sizeof(double));
+  x  = (double*) calloc (N*Ns*bs   ,sizeof(double));
+  y  = (double*) calloc (N*Ns*bs   ,sizeof(double));
+
+  /* 
+    TEST 1: Solution of an identity matrix with random
+            right hand side
+            [I]x = b => x = b 
+  */
+
+  /* 
+    Set the values of the matrix elements and the 
+    right hand side
+  */
+  for (d = 0; d < Ns; d++) {
+    for (i = 0; i < N; i++) {
+      for (j=0; j<bs; j++) {
+        for (k=0; k<bs; k++) {
+          a1[(i*Ns+d)*bs*bs+j*bs+k] = 0.0;
+          if (j==k) b1[(i*Ns+d)*bs*bs+j*bs+k] = 1.0;
+          else      b1[(i*Ns+d)*bs*bs+j*bs+k] = 0.0;
+          c1[(i*Ns+d)*bs*bs+j*bs+k] = 0.0;
+        }
+        x [(i*Ns+d)*bs+j] = ((double) rand()) / ((double) RAND_MAX);
+      }
+    }
+  }
+
+
+  /*
+    Copy the original values to calculate error later
+  */
+  CopyArraySimple(a2,a1,N*Ns*bs*bs);
+  CopyArraySimple(b2,b1,N*Ns*bs*bs);
+  CopyArraySimple(c2,c1,N*Ns*bs*bs);
+  CopyArraySimple(y ,x ,N*Ns*bs   );
+  
+  /* Solve */  
+  printf("Block TridiagLU Serial test 1 ([I]x = b => x = b):        \t");
+  ierr = LUSolver(a1,b1,c1,x,N,Ns,bs,&context,NULL);
+  if (ierr == -1) printf("Error - system is singular\t");
+
+  /*
+    Calculate Error
+  */
+  error = CalculateErrorBlock(a2,b2,c2,y,x,N,Ns,bs);
+  printf("error=%E\n",error);
+
+  /* 
+    TEST 2: Solution of an upper triangular matrix 
+            [U]x = b  
+  */
+
+  /* 
+    Set the values of the matrix elements and the 
+    right hand side
+  */
+  for (d = 0; d < Ns; d++) {
+    for (i = 0; i < N; i++) {
+      for (j=0; j<bs; j++) {
+        for (k=0; k<bs; k++) {
+          a1[(i*Ns+d)*bs*bs+j*bs+k] = 0.0;
+          b1[(i*Ns+d)*bs*bs+j*bs+k] = 100.0 + ((double) rand()) / ((double) RAND_MAX);
+          c1[(i*Ns+d)*bs*bs+j*bs+k] = (i == N-1 ? 0 : 0.5*(((double) rand()) / ((double) RAND_MAX)));
+        }
+        x [(i*Ns+d)*bs+j] = ((double) rand()) / ((double) RAND_MAX);
+      }
+    }
+  }
+
+  /*
+    Copy the original values to calculate error later
+  */
+  CopyArraySimple(a2,a1,N*Ns*bs*bs);
+  CopyArraySimple(b2,b1,N*Ns*bs*bs);
+  CopyArraySimple(c2,c1,N*Ns*bs*bs);
+  CopyArraySimple(y ,x ,N*Ns*bs   );
+
+  /* Solve */  
+  printf("Block TridiagLU Serial test 2 ([U]x = b => x = [U]^(-1)b):\t");
+  ierr = LUSolver(a1,b1,c1,x,N,Ns,bs,&context,NULL);
+  if (ierr == -1) printf("Error - system is singular\t");
+
+  /*
+    Calculate Error
+  */
+  error = CalculateErrorBlock(a2,b2,c2,y,x,N,Ns,bs);
+  printf("error=%E\n",error);
+
+  /* 
+    TEST 3: Solution of a tridiagonal matrix with random
+            entries and right hand side
+            [A]x = b => x = b 
+  */
+
+  /* 
+    Set the values of the matrix elements and the 
+    right hand side
+  */
+  for (d = 0; d < Ns; d++) {
+    for (i = 0; i < N; i++) {
+      for (j=0; j<bs; j++) {
+        for (k=0; k<bs; k++) {
+          a1[(i*Ns+d)*bs*bs+j*bs+k] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+          b1[(i*Ns+d)*bs*bs+j*bs+k] = 100.0*(1.0+((double) rand()) / ((double) RAND_MAX));
+          c1[(i*Ns+d)*bs*bs+j*bs+k] = (i == N-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+        }
+        x [(i*Ns+d)*bs+j] = ((double) rand()) / ((double) RAND_MAX);
+      }
+    }
+  }
+
+  /*
+    Copy the original values to calculate error later
+  */
+  CopyArraySimple(a2,a1,N*Ns*bs*bs);
+  CopyArraySimple(b2,b1,N*Ns*bs*bs);
+  CopyArraySimple(c2,c1,N*Ns*bs*bs);
+  CopyArraySimple(y ,x ,N*Ns*bs   );
+
+  /* Solve */  
+  printf("Block TridiagLU Serial test 3 ([A]x = b => x = [A]^(-1)b):\t");
+  ierr = LUSolver(a1,b1,c1,x,N,Ns,bs,&context,NULL);
+  if (ierr == -1) printf("Error - system is singular\t");
+
+  /*
+    Calculate Error
+  */
+  error = CalculateErrorBlock(a2,b2,c2,y,x,N,Ns,bs);
   printf("error=%E\n",error);
 
   /* 
@@ -592,6 +794,16 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
 
 
 /*
+  Function to copy the values of one array into another
+*/
+void CopyArraySimple(double *x,double *y,int N)
+{
+  int i;
+  for (i = 0; i < N; i++) x[i] = y[i];
+  return;
+}
+
+/*
   Function to copy the values of one 2D array into another
 */
 void CopyArray(double *x,double *y,int N,int Ns)
@@ -622,6 +834,24 @@ double CalculateError(double *a,double *b,double *c,double *y,double *x,
       else if (i == N-1)  val = y[i*Ns+d] - (a[i*Ns+d]*x[(i-1)*Ns+d]+b[i*Ns+d]*x[i*Ns+d]);
       else                val = y[i*Ns+d] - (a[i*Ns+d]*x[(i-1)*Ns+d]+b[i*Ns+d]*x[i*Ns+d]+c[i*Ns+d]*x[(i+1)*Ns+d]);
       error += val * val;
+    }
+  }
+  return(error);
+}
+
+
+double CalculateErrorBlock(double *a,double *b,double *c,double *y,double *x,
+                           int N,int Ns,int bs)
+{
+  int i,d,j;
+  double error = 0;
+  for (d = 0; d < Ns; d++) {
+    for (i = 0; i < N; i++) {
+      double val[bs]; for (j=0; j<bs; j++) val[j] = y[(i*Ns+d)*bs+j];
+      MatVecMultiplySubtract(val,b+(i*Ns+d)*bs*bs,x+(i*Ns+d)*bs,bs);
+      if (i != 0)   MatVecMultiplySubtract(val,a+(i*Ns+d)*bs*bs,x+((i-1)*Ns+d)*bs,bs);
+      if (i != N-1) MatVecMultiplySubtract(val,c+(i*Ns+d)*bs*bs,x+((i+1)*Ns+d)*bs,bs);
+      for (j=0; j<bs; j++) error += val[j] * val[j];
     }
   }
   return(error);
