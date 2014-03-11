@@ -105,14 +105,14 @@ int blocktridiagLU(double *a,double *b,double *c,double *x,
       for (i=0; i<bs; i++) xm1[i] = recvbuf[(d*nvar+3)*bs2+i];
       double factor[bs2], binv[bs2];
       _MatrixInvert_           (bm1,binv,bs);
-      _MatrixMultiply_         (binv,a+d*bs2,factor,bs);
+      _MatrixMultiply_         (a+d*bs2,binv,factor,bs);
       _MatrixMultiplySubtract_ (b+d*bs2,factor,cm1,bs);
       _MatrixZero_             (a+d*bs2,bs);
       _MatrixMultiplySubtract_ (a+d*bs2,factor,am1,bs);
       _MatVecMultiplySubtract_ (x+d*bs ,factor,xm1,bs);
       
       _MatrixInvert_           (b+((n-1)*ns+d)*bs2,binv,bs); if (ierr) return(ierr);
-      _MatrixMultiply_         (binv,c+d*bs2,factor,bs);
+      _MatrixMultiply_         (c+d*bs2,binv,factor,bs);
       _MatrixMultiplySubtract_ (b+d*bs2,factor,a+((n-1)*ns+d)*bs2,bs);
       _MatrixZero_             (c+d*bs2,bs);
       _MatrixMultiplySubtract_ (c+d*bs2,factor,c+((n-1)*ns+d)*bs2,bs);

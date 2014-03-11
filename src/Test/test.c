@@ -20,10 +20,12 @@ static int    test_block_serial   (int,int,int,int(*)(double*,double*,double*,do
 static double CalculateError      (double*,double*,double*,double*,double*,int,int);
 static double CalculateErrorBlock (double*,double*,double*,double*,double*,int,int,int);
 #else
-static int    main_mpi        (int,int,int,int,int);
-static int    test_mpi        (int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
-static int    partition1D     (int,int,int,int*);
-static double CalculateError  (double*,double*,double*,double*,double*,int,int,int,int);
+static int    main_mpi            (int,int,int,int,int);
+static int    test_mpi            (int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
+static int    test_block_mpi      (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,int,void*,void*));
+static int    partition1D         (int,int,int,int*);
+static double CalculateError      (double*,double*,double*,double*,double*,int,int,int,int);
+static double CalculateErrorBlock (double*,double*,double*,double*,double*,int,int,int,int,int);
 #endif
 
 int main(int argc, char *argv[])
@@ -478,7 +480,7 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
 {
   int ierr = 0;
 
-  if (!rank) printf("Testing MPI tridiagLUGS() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  if (!rank) printf("Testing MPI tridiagLUGS()       with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLUGS); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
   
@@ -486,10 +488,21 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagIterJacobi); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  if (!rank) printf("Testing MPI tridiagLU() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  if (!rank) printf("Testing MPI tridiagLU()         with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,&tridiagLU); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
 
+  int bs;
+  for (bs=1; bs <= MAX_BS; bs++) {
+    if (!rank) printf("Testing MPI blocktridiagIterJacobi() with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
+    ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,0,&blocktridiagIterJacobi); if(ierr) return(ierr);
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+  for (bs=1; bs <= MAX_BS; bs++) {
+    if (!rank) printf("Testing MPI blocktridiagLU()         with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
+    ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,1,&blocktridiagLU); if(ierr) return(ierr);
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
   /* Return */
   return(0);
 }
@@ -789,6 +802,319 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
   return(0);
 }
 
+/* 
+    THIS FUNCTION TESTS THE PARALLEL IMPLEMENTATION OF A 
+    TRIDIAGONAL SOLVER
+*/
+int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
+             int(*LUSolver)(double*,double*,double*,double*,int,int,int,void*,void*))
+{
+  int       i,j,k,d,ierr=0,nlocal;
+  double    error,total_error;
+  MPI_Comm  world;
+  TridiagLU context;
+  /* Variable declarations */
+  double *a1;    /* sub-diagonal                               */
+  double *b1;    /* diagonal                                   */
+  double *c1;    /* super-diagonal                             */
+  double *x;     /* right hand side, will contain the solution */ 
+
+  /* 
+    Since a,b,c and x are not preserved, declaring variables to
+    store a copy of them to calculate error after the solve
+  */
+  double *a2,*b2,*c2,*y;
+
+  /* Creating a duplicate communicator */
+  MPI_Comm_dup(MPI_COMM_WORLD,&world);
+
+  /* Initialize tridiagonal solver parameters */
+  ierr = tridiagLUInit(&context,&world); if (ierr) return(ierr);
+
+  /* Initialize random number generator */
+  srand(time(NULL));
+
+  /* 
+    Calculate local size on this process, given
+    the total size N and number of processes 
+    nproc
+  */
+  ierr = partition1D(N,nproc,rank,&nlocal);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* 
+    Allocate arrays of dimension (Ns x nlocal) 
+    Ns      -> number of systems
+    nlocal  -> local size of each system
+  */
+  a1 = (double*) calloc (Ns*nlocal*bs*bs,sizeof(double));
+  b1 = (double*) calloc (Ns*nlocal*bs*bs,sizeof(double));
+  c1 = (double*) calloc (Ns*nlocal*bs*bs,sizeof(double));
+  a2 = (double*) calloc (Ns*nlocal*bs*bs,sizeof(double));
+  b2 = (double*) calloc (Ns*nlocal*bs*bs,sizeof(double));
+  c2 = (double*) calloc (Ns*nlocal*bs*bs,sizeof(double));
+  x  = (double*) calloc (Ns*nlocal*bs   ,sizeof(double));
+  y  = (double*) calloc (Ns*nlocal*bs   ,sizeof(double));
+
+
+  /*
+      TESTING THE LU SOLVER
+  */
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* 
+    TEST 1: Solution of an identity matrix with random
+            right hand side
+            [I]x = b => x = b 
+  */
+
+  /* 
+    Set the values of the matrix elements and the 
+    right hand side
+  */
+  for (d = 0; d < Ns; d++) {
+    for (i = 0; i < nlocal; i++) {
+      for (j=0; j<bs; j++) {
+        for (k=0; k<bs; k++) {
+          a1[(i*Ns+d)*bs*bs+j*bs+k] = 0.0;
+          if (j==k) b1[(i*Ns+d)*bs*bs+j*bs+k] = 1.0;
+          else      b1[(i*Ns+d)*bs*bs+j*bs+k] = 0.0;
+          c1[(i*Ns+d)*bs*bs+j*bs+k] = 0.0;
+        }
+        x [(i*Ns+d)*bs+j] = rand();
+      }
+    }
+  }
+
+  /*
+    Copy the original values to calculate error later
+  */
+  CopyArraySimple(a2,a1,nlocal*Ns*bs*bs);
+  CopyArraySimple(b2,b1,nlocal*Ns*bs*bs);
+  CopyArraySimple(c2,c1,nlocal*Ns*bs*bs);
+  CopyArraySimple(y ,x ,nlocal*Ns*bs   );
+  
+  /* Solve */  
+  if (!rank)  printf("Block MPI test 1 ([I]x = b => x = b):        \t");
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,bs,&context,&world);
+  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+
+  /*
+    Calculate Error
+  */
+  error = CalculateErrorBlock(a2,b2,c2,y,x,nlocal,Ns,bs,rank,nproc);
+  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            total_error = error;
+  if (!rank)  printf("error=%E\n",total_error);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* 
+    TEST 2: Solution of an upper triangular matrix 
+            [U]x = b  
+  */
+
+  /* 
+    Set the values of the matrix elements and the 
+    right hand side
+  */
+  for (d = 0; d < Ns; d++) {
+    for (i = 0; i < nlocal; i++) {
+      for (j=0; j<bs; j++) {
+        for (k=0; k<bs; k++) {
+          a1[(i*Ns+d)*bs*bs+j*bs+k] = 0.0;
+          if (j==k) b1[(i*Ns+d)*bs*bs+j*bs+k] = 400.0 + ((double) rand()) / ((double) RAND_MAX);
+          else      b1[(i*Ns+d)*bs*bs+j*bs+k] = 100.0 + ((double) rand()) / ((double) RAND_MAX);
+          if (rank == nproc-1) c1[(i*Ns+d)*bs*bs+j*bs+k] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+          else                 c1[(i*Ns+d)*bs*bs+j*bs+k] = ((double) rand()) / ((double) RAND_MAX);
+        }
+        x[(i*Ns+d)*bs+j]  = ((double) rand()) / ((double) RAND_MAX);
+      }
+    }
+  }
+
+  /*
+    Copy the original values to calculate error later
+  */
+  CopyArraySimple(a2,a1,nlocal*Ns*bs*bs);
+  CopyArraySimple(b2,b1,nlocal*Ns*bs*bs);
+  CopyArraySimple(c2,c1,nlocal*Ns*bs*bs);
+  CopyArraySimple(y ,x ,nlocal*Ns*bs   );
+
+  /* Solve */  
+  if (!rank) printf("Block MPI test 2 ([U]x = b => x = [U]^(-1)b):\t");
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,bs,&context,&world);
+  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+
+  /*
+    Calculate Error
+  */
+  error = CalculateErrorBlock(a2,b2,c2,y,x,nlocal,Ns,bs,rank,nproc);
+  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            total_error = error;
+  if (!rank) printf("error=%E\n",total_error);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* 
+    TEST 3: Solution of a tridiagonal matrix with random
+            entries and right hand side
+            [A]x = b => x = b 
+  */
+
+  /* 
+    Set the values of the matrix elements and the 
+    right hand side
+  */
+  for (d = 0; d < Ns; d++) {
+    for (i = 0; i < nlocal; i++) {
+      for (j=0; j<bs; j++) {
+        for (k=0; k<bs; k++) {
+          if (!rank )           a1[(i*Ns+d)*bs*bs+j*bs+k] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+          else                  a1[(i*Ns+d)*bs*bs+j*bs+k] = ((double) rand()) / ((double) RAND_MAX);
+          if (j==k)             b1[(i*Ns+d)*bs*bs+j*bs+k] = 200.0*(1.0 + ((double) rand()) / ((double) RAND_MAX));
+          else                  b1[(i*Ns+d)*bs*bs+j*bs+k] = 100.0*(1.0 + ((double) rand()) / ((double) RAND_MAX));
+          if (rank == nproc-1)  c1[(i*Ns+d)*bs*bs+j*bs+k] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+          else                  c1[(i*Ns+d)*bs*bs+j*bs+k] = ((double) rand()) / ((double) RAND_MAX);
+        }
+        x[(i*Ns+d)*bs+j]  = ((double) rand()) / ((double) RAND_MAX);
+      }
+    }
+  }
+
+  /*
+    Copy the original values to calculate error later
+  */
+  CopyArraySimple(a2,a1,nlocal*Ns*bs*bs);
+  CopyArraySimple(b2,b1,nlocal*Ns*bs*bs);
+  CopyArraySimple(c2,c1,nlocal*Ns*bs*bs);
+  CopyArraySimple(y ,x ,nlocal*Ns*bs   );
+
+  /* Solve */  
+  if (!rank) printf("Block MPI test 3 ([A]x = b => x = [A]^(-1)b):\t");
+  ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,bs,&context,&world);
+  if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+
+  /*
+    Calculate Error
+  */
+  error = CalculateErrorBlock(a2,b2,c2,y,x,nlocal,Ns,bs,rank,nproc);
+  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            total_error = error;
+  if (!rank) printf("error=%E\n",total_error);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /*
+      DONE TESTING THE LU SOLVER
+  */
+
+
+  /*
+      TESTING WALLTIMES FOR NRuns NUMBER OF RUNS OF TRIDIAGLU()
+      FOR SCALABILITY CHECK IF REQUIRED
+  */
+
+  if (flag) {
+
+    /* 
+      TEST 4: Same as TEST 3
+      Set the values of the matrix elements and the 
+      right hand side
+    */
+    for (d = 0; d < Ns; d++) {
+      for (i = 0; i < nlocal; i++) {
+        for (j=0; j<bs; j++) {
+          for (k=0; k<bs; k++) {
+            if (!rank )           a1[(i*Ns+d)*bs*bs+j*bs+k] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
+            else                  a1[(i*Ns+d)*bs*bs+j*bs+k] = ((double) rand()) / ((double) RAND_MAX);
+            if (j==k)             b1[(i*Ns+d)*bs*bs+j*bs+k] = 200.0*(1.0 + ((double) rand()) / ((double) RAND_MAX));
+            else                  b1[(i*Ns+d)*bs*bs+j*bs+k] = 100.0*(1.0 + ((double) rand()) / ((double) RAND_MAX));
+            if (rank == nproc-1)  c1[(i*Ns+d)*bs*bs+j*bs+k] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
+            else                  c1[(i*Ns+d)*bs*bs+j*bs+k] = ((double) rand()) / ((double) RAND_MAX);
+          }
+          x[(i*Ns+d)*bs+j]  = ((double) rand()) / ((double) RAND_MAX);
+        }
+      }
+    }
+
+    /*
+      Keep a copy of the original values 
+    */
+    CopyArraySimple(a2,a1,nlocal*Ns*bs*bs);
+    CopyArraySimple(b2,b1,nlocal*Ns*bs*bs);
+    CopyArraySimple(c2,c1,nlocal*Ns*bs*bs);
+    CopyArraySimple(y ,x ,nlocal*Ns*bs   );
+
+    if (!rank) 
+      printf("\nBlock MPI test 4 (Speed test - %d Tridiagonal Solves):\n",NRuns);
+    double runtimes[5] = {0.0,0.0,0.0,0.0,0.0};
+    error = 0;
+    /* 
+      Solve the systen NRuns times
+    */  
+    for (i = 0; i < NRuns; i++) {
+      /* Copy the original values */
+      CopyArraySimple(a1,a2,nlocal*Ns*bs*bs);
+      CopyArraySimple(b1,b2,nlocal*Ns*bs*bs);
+      CopyArraySimple(c1,c2,nlocal*Ns*bs*bs);
+      CopyArraySimple(x ,y ,nlocal*Ns*bs   );
+      /* Solve the system */
+      ierr         = LUSolver(a1,b1,c1,x,nlocal,Ns,bs,&context,&world);
+      /* Calculate errors */
+      double err   = CalculateErrorBlock(a2,b2,c2,y,x,nlocal,Ns,bs,rank,nproc);
+      /* Add the walltimes to the cumulative total */
+      runtimes[0] += context.total_time;
+      runtimes[1] += context.stage1_time;
+      runtimes[2] += context.stage2_time;
+      runtimes[3] += context.stage3_time;
+      runtimes[4] += context.stage4_time;
+      if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+      error += err;
+    }
+  
+    /* Calculate average error */
+    error /= NRuns;
+    if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    else            total_error = error;
+
+    /* Calculate maximum value of walltime across all processes */
+    MPI_Allreduce(MPI_IN_PLACE,&runtimes[0],5,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
+    /* Print results */
+    if (ierr == -1) printf("Error - system is singular on process %d\t",rank);
+    if (!rank) {
+      printf("\t\tTotal  walltime = %E\n",runtimes[0]);
+      printf("\t\tStage1 walltime = %E\n",runtimes[1]);
+      printf("\t\tStage2 walltime = %E\n",runtimes[2]);
+      printf("\t\tStage3 walltime = %E\n",runtimes[3]);
+      printf("\t\tStage4 walltime = %E\n",runtimes[4]);
+      printf("\t\tAverage error   = %E\n",total_error);
+      FILE *out;
+      out = fopen("walltimes.dat","w");
+      fprintf(out,"%5d  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
+              runtimes[1],runtimes[2],runtimes[3],runtimes[4]);
+      fclose(out);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+  /*
+      DONE TESTING TRIDIAGLU() WALLTIMES
+  */
+
+  /* 
+    DEALLOCATE ALL ARRAYS
+  */
+  free(a1);
+  free(b1);
+  free(c1);
+  free(a2);
+  free(b2);
+  free(c2);
+  free(x);
+  free(y);
+  MPI_Comm_free(&world);
+
+  /* Return */
+  return(0);
+}
 
 #endif
 
@@ -898,6 +1224,44 @@ double CalculateError(double *a,double *b,double *c,double *y,double *x,
   return(error);
 }
 
+
+double CalculateErrorBlock(double *a,double *b,double *c,double *y,double *x,
+                      int N,int Ns,int bs,int rank,int nproc)
+{
+  double        error = 0;
+  int           i,j,d;
+  double        xp1[bs], xm1[bs]; /* solution from neighboring processes */
+
+  for (d = 0; d < Ns; d++) {
+    for (i=0; i<bs; i++) xp1[i] = 0;
+    if (nproc > 1) {
+      MPI_Request request = MPI_REQUEST_NULL;
+      if (rank != nproc-1)  MPI_Irecv(&xp1,bs,MPI_DOUBLE,rank+1,1738,MPI_COMM_WORLD,&request);
+      if (rank)             MPI_Send(&x[d*bs],bs,MPI_DOUBLE,rank-1,1738,MPI_COMM_WORLD);
+      MPI_Wait(&request,MPI_STATUS_IGNORE);
+    }
+  
+    for (i=0; i<bs; i++) xm1[i] = 0;
+    if (nproc > 1) {
+      MPI_Request request = MPI_REQUEST_NULL;
+      if (rank)             MPI_Irecv(&xm1,bs,MPI_DOUBLE,rank-1,1739,MPI_COMM_WORLD,&request);
+      if (rank != nproc-1)  MPI_Send (&x[(d+(N-1)*Ns)*bs],bs,MPI_DOUBLE,rank+1,1739,MPI_COMM_WORLD);
+      MPI_Wait(&request,MPI_STATUS_IGNORE);
+    }
+
+    error = 0;
+    for (i = 0; i < N; i++) {
+      double val[bs]; for (j=0; j<bs; j++) val[j] = y[(i*Ns+d)*bs+j];
+      _MatVecMultiplySubtract_(val,b+(i*Ns+d)*bs*bs,x+(i*Ns+d)*bs,bs);
+      if (i == 0)   _MatVecMultiplySubtract_(val,a+(i*Ns+d)*bs*bs,xm1,bs)
+      else          _MatVecMultiplySubtract_(val,a+(i*Ns+d)*bs*bs,x+((i-1)*Ns+d)*bs,bs)
+      if (i == N-1) _MatVecMultiplySubtract_(val,c+(i*Ns+d)*bs*bs,xp1,bs)
+      else          _MatVecMultiplySubtract_(val,c+(i*Ns+d)*bs*bs,x+((i+1)*Ns+d)*bs,bs)
+      for (j=0; j<bs; j++) error += val[j] * val[j];
+    }
+  }
+  return(error);
+}
 #endif
 
 #ifndef serial
