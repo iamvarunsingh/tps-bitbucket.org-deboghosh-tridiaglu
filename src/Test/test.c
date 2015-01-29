@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
   fclose(in);
   /* call the test function */
   ierr = main_serial(N,Ns);
-  if (ierr) fprintf(stderr,"main_mpi() returned with an error code of %d.\n",ierr);
+  if (ierr) fprintf(stderr,"main_serial() returned with an error code of %d.\n",ierr);
 
 #else
 
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 
 /* 
   THIS FUNCTION CALLS THE TEST FUNCTION FOR THE DIFFERENT 
-  TRIDIAGONAL SOLVERS
+  TRIDIAGONAL SOLVERS (Serial)
 */
 int main_serial(int N,int Ns)
 {
@@ -807,7 +807,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
 
 /* 
     THIS FUNCTION TESTS THE PARALLEL IMPLEMENTATION OF A 
-    TRIDIAGONAL SOLVER
+    BLOCK TRIDIAGONAL SOLVER
 */
 int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
              int(*LUSolver)(double*,double*,double*,double*,int,int,int,void*,void*))
