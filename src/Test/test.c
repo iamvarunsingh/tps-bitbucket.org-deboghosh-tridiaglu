@@ -33,7 +33,7 @@ extern void Cblacs_pinfo();
 extern void Cblacs_get();
 extern void Cblacs_gridinit();
 extern void Cblacs_gridexit();
-
+extern void Cblacs_exit();
 #endif
 
 int main(int argc, char *argv[])
@@ -95,9 +95,10 @@ int main(int argc, char *argv[])
 
 #ifdef with_scalapack
   Cblacs_gridexit(blacs_context);
-#endif
-
+  Cblacs_exit(0);
+#else
   MPI_Finalize();
+#endif
 #endif
   return(0);
 }
