@@ -9,6 +9,8 @@ AM_INIT_AUTOMAKE
 AC_PREFIX_DEFAULT('$(top_srcdir)')
 
 AC_ARG_WITH([mpidir],AC_HELP_STRING([--with-mpidir],[Specify path where mpicc is installed.]))
+AC_ARG_ENABLE([scalapack],AS_HELP_STRING([--enable-scalapack],[Enable ScaLAPACK]))
+AC_ARG_WITH([scalapackdir],AC_HELP_STRING([--with-scalapackdir],[Specify path where ScaLAPACK is installed.]))
 
 if test "x$with_mpidir" != "x" ; then
   AC_MSG_CHECKING([for mpicc in $with_mpidir/bin/])
@@ -31,6 +33,16 @@ if test "x$MPICC" = "x" ; then
 else
   CC=$MPICC
 fi
+
+if test "x$enable_scalapack" = "xyes" ; then
+  AC_MSG_NOTICE([Compiling with ScaLAPACK support.])
+  CFLAGS="$CFLAGS -Dwith_scalapack"
+  if test "x$with_scalapackdir" != "x" ; then
+    LDFLAGS="$LDFLAGS -Wl,-rpath,$with_scalapackdir/lib -L$with_scalapackdir/lib"
+  fi
+  LIBS="$LIBS -lscalapack -lblas -llapack"
+fi
+
 
 CFLAGS="$CFLAGS -I/opt/local/include -I$includedir -std=c99"
 LDFLAGS="$LDFLAGS -L/opt/local/lib"

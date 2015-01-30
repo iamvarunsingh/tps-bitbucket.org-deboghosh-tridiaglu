@@ -20,12 +20,20 @@ static int    test_block_serial   (int,int,int,int(*)(double*,double*,double*,do
 static double CalculateError      (double*,double*,double*,double*,double*,int,int);
 static double CalculateErrorBlock (double*,double*,double*,double*,double*,int,int,int);
 #else
-static int    main_mpi            (int,int,int,int,int);
-static int    test_mpi            (int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
+static int    main_mpi            (int,int,int,int,int,int);
+static int    test_mpi            (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
 static int    test_block_mpi      (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,int,void*,void*));
 static int    partition1D         (int,int,int,int*);
 static double CalculateError      (double*,double*,double*,double*,double*,int,int,int,int);
 static double CalculateErrorBlock (double*,double*,double*,double*,double*,int,int,int,int,int);
+#endif
+
+#ifdef with_scalapack
+extern void Cblacs_pinfo();
+extern void Cblacs_get();
+extern void Cblacs_gridinit();
+extern void Cblacs_gridexit();
+
 #endif
 
 int main(int argc, char *argv[])
@@ -54,6 +62,16 @@ int main(int argc, char *argv[])
   MPI_Init(&argc,&argv);
   MPI_Comm_size(MPI_COMM_WORLD,&nproc);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+
+#ifdef with_scalapack
+  /* initialize BLACS */
+  int rank_blacs,nproc_blacs,blacs_context;
+  Cblacs_pinfo(&rank_blacs,&nproc_blacs);
+  Cblacs_get(-1,0,&blacs_context);
+  Cblacs_gridinit(&blacs_context,"R",1,nproc_blacs);
+#else
+  int blacs_context = -1;
+#endif
   
   /* read in size of system, number of system and number of solves */
   
@@ -72,8 +90,12 @@ int main(int argc, char *argv[])
   MPI_Bcast(&NRuns,1,MPI_INT,0,MPI_COMM_WORLD);
 
   /* call the test function */
-  ierr = main_mpi(N,Ns,NRuns,rank,nproc);
+  ierr = main_mpi(N,Ns,NRuns,rank,nproc,blacs_context);
   if (ierr) fprintf(stderr,"main_mpi() returned with an error code of %d on rank %d.\n",ierr,rank);
+
+#ifdef with_scalapack
+  Cblacs_gridexit(blacs_context);
+#endif
 
   MPI_Finalize();
 #endif
@@ -476,21 +498,27 @@ int test_block_serial(int N,int Ns,int bs,int (*LUSolver)(double*,double*,double
   THIS FUNCTION CALLS THE TEST FUNCTION FOR THE DIFFERENT 
   TRIDIAGONAL SOLVERS
 */
-int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
+int main_mpi(int N,int Ns,int NRuns,int rank,int nproc,int blacs_context)
 {
   int ierr = 0;
 
   if (!rank) printf("\nTesting MPI tridiagLUGS()       with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
-  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagLUGS); if (ierr) return(ierr);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,blacs_context,&tridiagLUGS); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
   
   if (!rank) printf("\nTesting MPI tridiagIterJacobi() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
-  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,&tridiagIterJacobi); if (ierr) return(ierr);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,blacs_context,&tridiagIterJacobi); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
 
   if (!rank) printf("\nTesting MPI tridiagLU()         with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
-  ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,&tridiagLU); if (ierr) return(ierr);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,blacs_context,&tridiagLU); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
+
+#ifdef with_scalapack
+  if (!rank) printf("\nTesting MPI tridiagScaLPK()     with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,blacs_context,&tridiagScaLPK); if (ierr) return(ierr);
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
 
   if (!rank) printf("-----------------------------------------------------------------\n");
   MPI_Barrier(MPI_COMM_WORLD);
@@ -514,7 +542,7 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc)
     THIS FUNCTION TESTS THE PARALLEL IMPLEMENTATION OF A 
     TRIDIAGONAL SOLVER
 */
-int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
+int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_context,
              int(*LUSolver)(double*,double*,double*,double*,int,int,void*,void*))
 {
   int       i,d,ierr=0,nlocal;
@@ -538,6 +566,10 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag,
 
   /* Initialize tridiagonal solver parameters */
   ierr = tridiagLUInit(&context,&world); if (ierr) return(ierr);
+
+#ifdef with_scalapack
+  context.blacs_ctxt = blacs_context;
+#endif
 
   /* Initialize random number generator */
   srand(time(NULL));
