@@ -104,5 +104,7 @@ int tridiagLUInit     (void*,void*);
 int blocktridiagLU         (double*,double*,double*,double*,int,int,int,void*,void*);
 int blocktridiagIterJacobi (double*,double*,double*,double*,int,int,int,void*,void*);
 
+#ifdef with_scalapack
 /* ScaLAPACK interface */
 int tridiagScaLPK     (double*,double*,double*,double*,int,int,void*,void*);
+#endif
