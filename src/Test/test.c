@@ -8,7 +8,7 @@
 #include <matops.h>
 
 /* Maximum block size to test */
-int MAX_BS = 5;
+int MAX_BS = 0;
 
 /* Function declarations */
 static void   CopyArray       (double*,double*,int,int);
@@ -772,7 +772,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
       CopyArray(c2,c1,nlocal,Ns);
       CopyArray(y ,x ,nlocal,Ns);
       /* Solve the system */
-      ierr         = tridiagLU(a1,b1,c1,x,nlocal,Ns,&context,&world);
+      ierr         = LUSolver(a1,b1,c1,x,nlocal,Ns,&context,&world);
       /* Calculate errors */
       double err   = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
       /* Add the walltimes to the cumulative total */
