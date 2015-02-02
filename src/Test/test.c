@@ -21,8 +21,8 @@ static double CalculateError      (double*,double*,double*,double*,double*,int,i
 static double CalculateErrorBlock (double*,double*,double*,double*,double*,int,int,int);
 #else
 static int    main_mpi            (int,int,int,int,int,int);
-static int    test_mpi            (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*));
-static int    test_block_mpi      (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,int,void*,void*));
+static int    test_mpi            (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*),char*);
+static int    test_block_mpi      (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,int,void*,void*),char*);
 static int    partition1D         (int,int,int,int*);
 static double CalculateError      (double*,double*,double*,double*,double*,int,int,int,int);
 static double CalculateErrorBlock (double*,double*,double*,double*,double*,int,int,int,int,int);
@@ -504,20 +504,20 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc,int blacs_context)
   int ierr = 0;
 
   if (!rank) printf("\nTesting MPI tridiagLUGS()       with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
-  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,blacs_context,&tridiagLUGS); if (ierr) return(ierr);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,blacs_context,&tridiagLUGS,"walltimes_tridiagLUGS.dat"); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
   
   if (!rank) printf("\nTesting MPI tridiagIterJacobi() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
-  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,blacs_context,&tridiagIterJacobi); if (ierr) return(ierr);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,blacs_context,&tridiagIterJacobi,"walltimes_tridiagIterJac.dat"); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
 
   if (!rank) printf("\nTesting MPI tridiagLU()         with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
-  ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,blacs_context,&tridiagLU); if (ierr) return(ierr);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,blacs_context,&tridiagLU,"walltimes_tridiagLU.dat"); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
 
 #ifdef with_scalapack
   if (!rank) printf("\nTesting MPI tridiagScaLPK()     with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
-  ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,blacs_context,&tridiagScaLPK); if (ierr) return(ierr);
+  ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,blacs_context,&tridiagScaLPK,"walltimes_tridiagScaLPK.dat"); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
@@ -527,12 +527,12 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc,int blacs_context)
   int bs;
   for (bs=1; bs <= MAX_BS; bs++) {
     if (!rank) printf("\nTesting MPI blocktridiagIterJacobi() with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
-    ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,0,&blocktridiagIterJacobi); if(ierr) return(ierr);
+    ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,0,&blocktridiagIterJacobi,"walltimes_blocktridiagIterJac.dat"); if(ierr) return(ierr);
     MPI_Barrier(MPI_COMM_WORLD);
   }
   for (bs=1; bs <= MAX_BS; bs++) {
     if (!rank) printf("\nTesting MPI blocktridiagLU()         with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
-    ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,1,&blocktridiagLU); if(ierr) return(ierr);
+    ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,1,&blocktridiagLU,"walltimes_blocktridiagLU.dat"); if(ierr) return(ierr);
     MPI_Barrier(MPI_COMM_WORLD);
   }
   /* Return */
@@ -544,10 +544,10 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc,int blacs_context)
     TRIDIAGONAL SOLVER
 */
 int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_context,
-             int(*LUSolver)(double*,double*,double*,double*,int,int,void*,void*))
+             int(*LUSolver)(double*,double*,double*,double*,int,int,void*,void*),char *filename)
 {
   int       i,d,ierr=0,nlocal;
-  double    error,total_error;
+  double    error;
   MPI_Comm  world;
   TridiagLU context;
   /* Variable declarations */
@@ -639,9 +639,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
     Calculate Error
   */
   error = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
-  if (!rank)  printf("error=%E\n",total_error);
+  if (!rank)  printf("error=%E\n",error);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* 
@@ -680,9 +678,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
     Calculate Error
   */
   error = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
-  if (!rank) printf("error=%E\n",total_error);
+  if (!rank) printf("error=%E\n",error);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* 
@@ -723,9 +719,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
     Calculate Error
   */
   error = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
-  if (!rank) printf("error=%E\n",total_error);
+  if (!rank) printf("error=%E\n",error);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /*
@@ -793,8 +787,6 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
   
     /* Calculate average error */
     error /= NRuns;
-    if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    else            total_error = error;
 
     /* Calculate maximum value of walltime across all processes */
     MPI_Allreduce(MPI_IN_PLACE,&runtimes[0],5,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
@@ -807,11 +799,11 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
       printf("\t\tStage2 walltime = %E\n",runtimes[2]);
       printf("\t\tStage3 walltime = %E\n",runtimes[3]);
       printf("\t\tStage4 walltime = %E\n",runtimes[4]);
-      printf("\t\tAverage error   = %E\n",total_error);
+      printf("\t\tAverage error   = %E\n",error);
       FILE *out;
-      out = fopen("walltimes.dat","w");
-      fprintf(out,"%5d  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
-              runtimes[1],runtimes[2],runtimes[3],runtimes[4]);
+      out = fopen(filename,"w");
+      fprintf(out,"%5d  %E  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
+              runtimes[1],runtimes[2],runtimes[3],runtimes[4],error);
       fclose(out);
     }
     MPI_Barrier(MPI_COMM_WORLD);
@@ -843,10 +835,10 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
     BLOCK TRIDIAGONAL SOLVER
 */
 int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
-             int(*LUSolver)(double*,double*,double*,double*,int,int,int,void*,void*))
+             int(*LUSolver)(double*,double*,double*,double*,int,int,int,void*,void*),char *filename)
 {
   int       i,j,k,d,ierr=0,nlocal;
-  double    error,total_error;
+  double    error;
   MPI_Comm  world;
   TridiagLU context;
   /* Variable declarations */
@@ -939,9 +931,7 @@ int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
     Calculate Error
   */
   error = CalculateErrorBlock(a2,b2,c2,y,x,nlocal,Ns,bs,rank,nproc);
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
-  if (!rank)  printf("error=%E\n",total_error);
+  if (!rank)  printf("error=%E\n",error);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* 
@@ -985,9 +975,7 @@ int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
     Calculate Error
   */
   error = CalculateErrorBlock(a2,b2,c2,y,x,nlocal,Ns,bs,rank,nproc);
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
-  if (!rank) printf("error=%E\n",total_error);
+  if (!rank) printf("error=%E\n",error);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* 
@@ -1033,9 +1021,7 @@ int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
     Calculate Error
   */
   error = CalculateErrorBlock(a2,b2,c2,y,x,nlocal,Ns,bs,rank,nproc);
-  if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  else            total_error = error;
-  if (!rank) printf("error=%E\n",total_error);
+  if (!rank) printf("error=%E\n",error);
   MPI_Barrier(MPI_COMM_WORLD);
 
   /*
@@ -1108,8 +1094,6 @@ int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
   
     /* Calculate average error */
     error /= NRuns;
-    if (nproc > 1)  MPI_Allreduce(&error,&total_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    else            total_error = error;
 
     /* Calculate maximum value of walltime across all processes */
     MPI_Allreduce(MPI_IN_PLACE,&runtimes[0],5,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
@@ -1122,11 +1106,11 @@ int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
       printf("\t\tStage2 walltime = %E\n",runtimes[2]);
       printf("\t\tStage3 walltime = %E\n",runtimes[3]);
       printf("\t\tStage4 walltime = %E\n",runtimes[4]);
-      printf("\t\tAverage error   = %E\n",total_error);
+      printf("\t\tAverage error   = %E\n",error);
       FILE *out;
-      out = fopen("walltimes.dat","w");
-      fprintf(out,"%5d  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
-              runtimes[1],runtimes[2],runtimes[3],runtimes[4]);
+      out = fopen(filename,"w");
+      fprintf(out,"%5d  %E  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
+              runtimes[1],runtimes[2],runtimes[3],runtimes[4],error);
       fclose(out);
     }
     MPI_Barrier(MPI_COMM_WORLD);
@@ -1224,7 +1208,7 @@ double CalculateErrorBlock(double *a,double *b,double *c,double *y,double *x,
 double CalculateError(double *a,double *b,double *c,double *y,double *x,
                       int N,int Ns,int rank,int nproc)
 {
-  double        error = 0;
+  double        error = 0, norm = 0;
   int           i,d;
   double        xp1, xm1; /* solution from neighboring processes */
 
@@ -1246,6 +1230,7 @@ double CalculateError(double *a,double *b,double *c,double *y,double *x,
     }
 
     error = 0;
+    norm = 0;
     for (i = 0; i < N; i++) {
       double val = 0;
       if (i == 0)    val += a[i*Ns+d]*xm1;
@@ -1255,16 +1240,25 @@ double CalculateError(double *a,double *b,double *c,double *y,double *x,
       else           val += c[i*Ns+d]*x[(i+1)*Ns+d];
       val = y[i*Ns+d] - val;
       error += val * val;
+      norm += y[i*Ns+d] * y[i*Ns+d];
     }
   }
-  return(error);
+
+  double global_error = 0, global_norm = 0;
+  if (nproc > 1)  MPI_Allreduce(&error,&global_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            global_error = error;
+  if (nproc > 1)  MPI_Allreduce(&norm,&global_norm,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            global_norm = norm;
+  if (global_norm != 0.0) global_error /= global_norm;
+
+  return(global_error);
 }
 
 
 double CalculateErrorBlock(double *a,double *b,double *c,double *y,double *x,
                       int N,int Ns,int bs,int rank,int nproc)
 {
-  double        error = 0;
+  double        error = 0, norm = 0;
   int           i,j,d;
   double        xp1[bs], xm1[bs]; /* solution from neighboring processes */
 
@@ -1286,6 +1280,7 @@ double CalculateErrorBlock(double *a,double *b,double *c,double *y,double *x,
     }
 
     error = 0;
+    norm = 0;
     for (i = 0; i < N; i++) {
       double val[bs]; for (j=0; j<bs; j++) val[j] = y[(i*Ns+d)*bs+j];
       _MatVecMultiplySubtract_(val,b+(i*Ns+d)*bs*bs,x+(i*Ns+d)*bs,bs);
@@ -1294,9 +1289,18 @@ double CalculateErrorBlock(double *a,double *b,double *c,double *y,double *x,
       if (i == N-1) _MatVecMultiplySubtract_(val,c+(i*Ns+d)*bs*bs,xp1,bs)
       else          _MatVecMultiplySubtract_(val,c+(i*Ns+d)*bs*bs,x+((i+1)*Ns+d)*bs,bs)
       for (j=0; j<bs; j++) error += val[j] * val[j];
+      for (j=0; j<bs; j++) norm += y[(i*Ns+d)*bs+j] * y[(i*Ns+d)*bs+j];
     }
   }
-  return(error);
+
+  double global_error = 0, global_norm = 0;
+  if (nproc > 1)  MPI_Allreduce(&error,&global_error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            global_error = error;
+  if (nproc > 1)  MPI_Allreduce(&norm,&global_norm,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  else            global_norm = norm;
+  if (global_norm != 0.0) global_error /= global_norm;
+
+  return(global_error);
 }
 #endif
 
