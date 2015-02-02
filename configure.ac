@@ -13,6 +13,7 @@ AC_ARG_ENABLE([scalapack],AS_HELP_STRING([--enable-scalapack],[Enable ScaLAPACK]
 AC_ARG_WITH([blas_dir],AC_HELP_STRING([--with-blas-dir],[Specify path where BLAS is installed.]))
 AC_ARG_WITH([lapack_dir],AC_HELP_STRING([--with-lapack-dir],[Specify path where LAPACK is installed.]))
 AC_ARG_WITH([scalapack_dir],AC_HELP_STRING([--with-scalapack-dir],[Specify path where ScaLAPACK is installed.]))
+AC_ARG_WITH([fortran_lib],AC_HELP_STRING([--with-fortran-lib],[Specify path where FORTRAN libraries are installed.]))
 
 AC_PROG_CC
 if test "$CC" = "gcc" ; then
@@ -25,6 +26,7 @@ else
     MPI_CC=mpixlc
   fi
 fi
+CCOMPILER=$CC
 
 if test "x$with_mpi_dir" != "x" ; then
   AC_MSG_CHECKING([for ${MPI_CC} in $with_mpi_dir/bin/])
@@ -58,7 +60,17 @@ if test "x$enable_scalapack" = "xyes" ; then
   if test "x$with_scalapack_dir" != "x" ; then
     LDFLAGS="$LDFLAGS -Wl,-rpath,$with_scalapack_dir/lib -L$with_scalapack_dir/lib"
   fi
-  LIBS="$LIBS -lscalapack -llapack -lblas -lgfortran"
+  if test "x$with_fortran_lib" != "x" ; then
+    LDFLAGS="$LDFLAGS -Wl,-rpath,$with_fortran_lib -L$with_fortran_lib"
+  fi
+  LIBS="$LIBS -lscalapack -llapack -lblas"
+  if test "$CCOMPILER" = "gcc" ; then
+    LIBS="$LIBS -lgfortran"
+  else
+    if test "$CCOMPILER" = "xlc" ; then
+      LIBS="$LIBS -lxlopt -lxl -lxlf90_r -lxlfmath"
+    fi
+  fi
 fi
 
 CFLAGS="$CFLAGS -I/opt/local/include -I$includedir"
