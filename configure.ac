@@ -8,9 +8,11 @@ AC_MSG_NOTICE([tridiagLU AC_PACKAGE_VERSION])
 AM_INIT_AUTOMAKE
 AC_PREFIX_DEFAULT('$(top_srcdir)')
 
-AC_ARG_WITH([mpidir],AC_HELP_STRING([--with-mpidir],[Specify path where mpicc is installed.]))
+AC_ARG_WITH([mpi_dir],AC_HELP_STRING([--with-mpi-dir],[Specify path where mpicc is installed.]))
 AC_ARG_ENABLE([scalapack],AS_HELP_STRING([--enable-scalapack],[Enable ScaLAPACK]))
-AC_ARG_WITH([scalapackdir],AC_HELP_STRING([--with-scalapackdir],[Specify path where ScaLAPACK is installed.]))
+AC_ARG_WITH([blas_dir],AC_HELP_STRING([--with-blas-dir],[Specify path where BLAS is installed.]))
+AC_ARG_WITH([lapack_dir],AC_HELP_STRING([--with-lapack-dir],[Specify path where LAPACK is installed.]))
+AC_ARG_WITH([scalapack_dir],AC_HELP_STRING([--with-scalapack-dir],[Specify path where ScaLAPACK is installed.]))
 
 AC_PROG_CC
 if test "$CC" = "gcc" ; then
@@ -24,11 +26,11 @@ else
   fi
 fi
 
-if test "x$with_mpidir" != "x" ; then
-  AC_MSG_CHECKING([for ${MPI_CC} in $with_mpidir/bin/])
-  if test -e $with_mpidir/bin/${MPI_CC} ; then
+if test "x$with_mpi_dir" != "x" ; then
+  AC_MSG_CHECKING([for ${MPI_CC} in $with_mpi_dir/bin/])
+  if test -e $with_mpi_dir/bin/${MPI_CC} ; then
     AC_MSG_RESULT([yes])
-    MPICC=$with_mpidir/bin/${MPI_CC}
+    MPICC=$with_mpi_dir/bin/${MPI_CC}
   else
     AC_MSG_RESULT([no])
   fi
@@ -38,7 +40,7 @@ if test "x$MPICC" = "x" ; then
 fi
 
 if test "x$MPICC" = "x" ; then
-  AC_MSG_WARN([Cannot find mpicc. Will compile with gcc. Use --with-mpidir to specify the location of mpicc.])
+  AC_MSG_WARN([Cannot find mpicc. Will compile with gcc. Use --with-mpi-dir to specify the location of mpicc.])
   CFLAGS="$CFLAGS -Dserial"
 else
   CC=$MPICC
@@ -47,8 +49,14 @@ fi
 if test "x$enable_scalapack" = "xyes" ; then
   AC_MSG_NOTICE([Compiling with ScaLAPACK support.])
   CFLAGS="$CFLAGS -Dwith_scalapack"
-  if test "x$with_scalapackdir" != "x" ; then
-    LDFLAGS="$LDFLAGS -Wl,-rpath,$with_scalapackdir/lib -L$with_scalapackdir/lib"
+  if test "x$with_blas_dir" != "x" ; then
+    LDFLAGS="$LDFLAGS -Wl,-rpath,$with_blas_dir/lib -L$with_blas_dir/lib"
+  fi
+  if test "x$with_lapack_dir" != "x" ; then
+    LDFLAGS="$LDFLAGS -Wl,-rpath,$with_lapack_dir/lib -L$with_lapack_dir/lib"
+  fi
+  if test "x$with_scalapack_dir" != "x" ; then
+    LDFLAGS="$LDFLAGS -Wl,-rpath,$with_scalapack_dir/lib -L$with_scalapack_dir/lib"
   fi
   LIBS="$LIBS -lscalapack -lblas -llapack"
 fi
