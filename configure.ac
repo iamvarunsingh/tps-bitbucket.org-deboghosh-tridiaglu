@@ -58,7 +58,7 @@ if test "x$enable_scalapack" = "xyes" ; then
   if test "x$with_scalapack_dir" != "x" ; then
     LDFLAGS="$LDFLAGS -Wl,-rpath,$with_scalapack_dir/lib -L$with_scalapack_dir/lib"
   fi
-  LIBS="$LIBS -lscalapack -lblas -llapack"
+  LIBS="$LIBS -lscalapack -llapack -lblas -lgfortran"
 fi
 
 CFLAGS="$CFLAGS -I/opt/local/include -I$includedir"
