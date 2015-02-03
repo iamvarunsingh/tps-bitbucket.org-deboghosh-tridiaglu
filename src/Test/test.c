@@ -21,8 +21,8 @@ static double CalculateError      (double*,double*,double*,double*,double*,int,i
 static double CalculateErrorBlock (double*,double*,double*,double*,double*,int,int,int);
 #else
 static int    main_mpi            (int,int,int,int,int,int);
-static int    test_mpi            (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*),char*);
-static int    test_block_mpi      (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,int,void*,void*),char*);
+static int    test_mpi            (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,void*,void*),const char*);
+static int    test_block_mpi      (int,int,int,int,int,int,int,int(*)(double*,double*,double*,double*,int,int,int,void*,void*),const char*);
 static int    partition1D         (int,int,int,int*);
 static double CalculateError      (double*,double*,double*,double*,double*,int,int,int,int);
 static double CalculateErrorBlock (double*,double*,double*,double*,double*,int,int,int,int,int);
@@ -544,7 +544,7 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc,int blacs_context)
     TRIDIAGONAL SOLVER
 */
 int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_context,
-             int(*LUSolver)(double*,double*,double*,double*,int,int,void*,void*),char *filename)
+             int(*LUSolver)(double*,double*,double*,double*,int,int,void*,void*),const char *filename)
 {
   int       i,d,ierr=0,nlocal;
   double    error;
@@ -835,7 +835,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
     BLOCK TRIDIAGONAL SOLVER
 */
 int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
-             int(*LUSolver)(double*,double*,double*,double*,int,int,int,void*,void*),char *filename)
+             int(*LUSolver)(double*,double*,double*,double*,int,int,int,void*,void*),const char *filename)
 {
   int       i,j,k,d,ierr=0,nlocal;
   double    error;
