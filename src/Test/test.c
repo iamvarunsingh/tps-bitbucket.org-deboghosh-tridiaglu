@@ -741,11 +741,17 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
     */
     for (d = 0; d < Ns; d++) {
       for (i = 0; i < nlocal; i++) {
-        if (!rank )           a1[i*Ns+d] = (i == 0 ? 0.0 : ((double) rand()) / ((double) RAND_MAX));
-        else                  a1[i*Ns+d] = ((double) rand()) / ((double) RAND_MAX);
-        b1[i*Ns+d] = 1.0 + ((double) rand()) / ((double) RAND_MAX);
-        if (rank == nproc-1)  c1[i*Ns+d] = (i == nlocal-1 ? 0 : ((double) rand()) / ((double) RAND_MAX));
-        else                  c1[i*Ns+d] = ((double) rand()) / ((double) RAND_MAX);
+
+        if (!rank )               a1[i*Ns+d] = (i == 0 ? 0.0 : 0.3 );
+        else                      a1[i*Ns+d] = 0.3;
+
+        if (!rank)                b1[i*Ns+d] = (i == 0 ? 1.0 : 0.6 );
+        else if (rank == nproc-1) b1[i*Ns+d] = (i == nlocal-1 ? 1.0 : 0.6 );
+        else                      b1[i*Ns+d] = 0.6;
+
+        if (rank == nproc-1)      c1[i*Ns+d] = (i == nlocal-1 ? 0 : 0.1 );
+        else                      c1[i*Ns+d] = 0.1;
+
         x[i*Ns+d]  = ((double) rand()) / ((double) RAND_MAX);
       }
     }
