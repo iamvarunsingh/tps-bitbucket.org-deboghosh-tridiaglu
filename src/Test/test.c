@@ -802,7 +802,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
       printf("\t\tAverage error   = %E\n",error);
       FILE *out;
       out = fopen(filename,"w");
-      fprintf(out,"%5d  %E  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
+      fprintf(out,"%5d  %1.16E  %1.16E  %1.16E  %1.16E  %1.16E  %1.16E\n",nproc,runtimes[0],
               runtimes[1],runtimes[2],runtimes[3],runtimes[4],error);
       fclose(out);
     }
@@ -1109,7 +1109,7 @@ int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
       printf("\t\tAverage error   = %E\n",error);
       FILE *out;
       out = fopen(filename,"w");
-      fprintf(out,"%5d  %E  %E  %E  %E  %E  %E\n",nproc,runtimes[0],
+      fprintf(out,"%5d  %1.16E  %1.16E  %1.16E  %1.16E  %1.16E  %1.16E\n",nproc,runtimes[0],
               runtimes[1],runtimes[2],runtimes[3],runtimes[4],error);
       fclose(out);
     }
