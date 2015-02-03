@@ -1,0 +1,111 @@
+#!/bin/bash
+echo "Setting up folders."
+
+NDOF=256
+NSYS=1
+NRUNS=1000
+nproc_max=64
+
+ROOT_DIR=$PWD
+INPUT_DIR="$ROOT_DIR/inputs"
+INPUT_FILE="input"
+LUSOLVER_FILE="lusolver.inp"
+
+# create input files
+if [ ! -d "$INPUT_DIR" ]; then
+  echo "Creating $INPUT_DIR"
+  mkdir $INPUT_DIR
+fi
+cd $INPUT_DIR
+
+echo "  Creating input file"
+if [ -e "$INPUT_FILE"  ] ; then
+  rm -rf "$INPUT_FILE"
+fi
+echo "$NDOF $NSYS $NRUNS" >> $INPUT_FILE
+
+iter=0
+while [ $iter -le 10 ]; do
+  echo "  Creating lusolver.inp for $iter Jacobi iterations."
+  FILENAME="$LUSOLVER_FILE.JacIter$iter"
+  if [ -e "$FILENAME" ] ; then
+    rm -rf "$FILENAME"
+  fi
+  echo "begin
+  reducedsolvetype  jacobi
+  evaluate_norm     0
+  maxiter           $iter
+  atol              1e-10
+  rtol              1e-10
+  verbose           0
+end" >> "$FILENAME"
+  let iter=iter+2
+done
+  
+echo "  Creating lusolver.inp for Jacobi iterations with norm-based exit."
+FILENAME="$LUSOLVER_FILE.JacIterNorm"
+if [ -e "$FILENAME" ] ; then
+  rm -rf "$FILENAME"
+fi
+echo "begin
+  reducedsolvetype  jacobi
+  evaluate_norm     1
+  maxiter           100
+  atol              1e-12
+  rtol              1e-10
+  verbose           0
+end" >> "$FILENAME"
+
+# come back to root directory
+cd $ROOT_DIR
+
+# create run directories
+iter=0
+while [ $iter -le 10 ]; do
+  echo "Jacobi iterations: iter = $iter."
+  DIR_NAME="$ROOT_DIR/JacIter_$iter"
+  if [ ! -d "$DIR_NAME" ] ; then
+    echo "  Creating $DIR_NAME."
+    mkdir $DIR_NAME
+  fi
+  nproc=1
+  while [ $nproc -le $nproc_max ] ; do
+    echo "  nproc = $nproc."
+    DIR_NAME="$ROOT_DIR/JacIter_$iter/nproc_$nproc"
+    if [ ! -d "$DIR_NAME" ]; then
+      echo "    Creating $DIR_NAME."
+      mkdir $DIR_NAME
+    fi
+    echo "    Setting up $DIR_NAME."
+    cd $DIR_NAME
+    #rm -rf *
+    ln -sf "$INPUT_DIR/$INPUT_FILE" "$INPUT_FILE"
+    ln -sf "$INPUT_DIR/$LUSOLVER_FILE.JacIter$iter" "$LUSOLVER_FILE"
+    cd $ROOT_DIR
+    let nproc=nproc*2
+  done
+  let iter=iter+2
+done
+
+echo "Jacobi iterations: norm-based exit."
+DIR_NAME="$ROOT_DIR/JacIterNorm"
+if [ ! -d "$DIR_NAME" ] ; then
+  echo "  Creating $DIR_NAME."
+  mkdir $DIR_NAME
+fi
+nproc=1
+while [ $nproc -le $nproc_max ] ; do
+  echo "  nproc = $nproc."
+  DIR_NAME="$ROOT_DIR/JacIterNorm/nproc_$nproc"
+  if [ ! -d "$DIR_NAME" ]; then
+    echo "    Creating $DIR_NAME."
+    mkdir $DIR_NAME
+  fi
+  echo "    Setting up $DIR_NAME."
+  cd $DIR_NAME
+  #rm -rf *
+  ln -sf "$INPUT_DIR/$INPUT_FILE" "$INPUT_FILE"
+  ln -sf "$INPUT_DIR/$LUSOLVER_FILE.JacIterNorm" "$LUSOLVER_FILE"
+  cd $ROOT_DIR
+  let nproc=nproc*2
+done

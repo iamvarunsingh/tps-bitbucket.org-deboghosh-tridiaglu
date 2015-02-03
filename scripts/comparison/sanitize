@@ -1,0 +1,48 @@
+#!/bin/bash
+echo "Sanitizing."
+
+ROOT_DIR=$PWD
+nproc_max=64
+INPUT_DIR="$ROOT_DIR/inputs"
+
+# enter directories and the code there
+iter=0
+while [ $iter -le 10 ]; do
+  echo "Jacobi iterations: iter = $iter."
+  nproc=1
+  while [ $nproc -le $nproc_max ] ; do
+    echo "  nproc = $nproc."
+    DIR_NAME="$ROOT_DIR/JacIter_$iter/nproc_$nproc"
+    if [ ! -d "$DIR_NAME" ]; then
+      echo "    $DIR_NAME does not exist. Why?"
+      cd $ROOT_DIR
+    else
+      echo "    Cleaning up in $DIR_NAME"
+      cd $DIR_NAME
+      rm -rf *
+      cd $ROOT_DIR
+    fi
+    let nproc=nproc*2
+  done
+  let iter=iter+2
+done
+
+echo "Jacobi iterations: norm-based exit."
+nproc=1
+while [ $nproc -le $nproc_max ] ; do
+  echo "  nproc = $nproc."
+  DIR_NAME="$ROOT_DIR/JacIterNorm/nproc_$nproc"
+  if [ ! -d "$DIR_NAME" ]; then
+    echo "    $DIR_NAME does not exist. Why?"
+    cd $ROOT_DIR
+  else
+    echo "    Cleaning up in $DIR_NAME"
+    cd $DIR_NAME
+    rm -rf *
+    cd $ROOT_DIR
+  fi
+  let nproc=nproc*2
+done
+
+cd $ROOT_DIR
+rm -rf Jac* $INPUT_DIR
