@@ -778,9 +778,11 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
       CopyArray(c2,c1,nlocal,Ns);
       CopyArray(y ,x ,nlocal,Ns);
       /* Solve the system */
-      ierr         = LUSolver(a1,b1,c1,x,nlocal,Ns,&context,&world);
+      MPI_Barrier(MPI_COMM_WORLD);
+      ierr = LUSolver(a1,b1,c1,x,nlocal,Ns,&context,&world);
+      MPI_Barrier(MPI_COMM_WORLD);
       /* Calculate errors */
-      double err   = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
+      double err = CalculateError(a2,b2,c2,y,x,nlocal,Ns,rank,nproc);
       /* Add the walltimes to the cumulative total */
       runtimes[0] += context.total_time;
       runtimes[1] += context.stage1_time;
@@ -1085,7 +1087,9 @@ int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
       CopyArraySimple(c1,c2,nlocal*Ns*bs*bs);
       CopyArraySimple(x ,y ,nlocal*Ns*bs   );
       /* Solve the system */
+      MPI_Barrier(MPI_COMM_WORLD);
       ierr         = LUSolver(a1,b1,c1,x,nlocal,Ns,bs,&context,&world);
+      MPI_Barrier(MPI_COMM_WORLD);
       /* Calculate errors */
       double err   = CalculateErrorBlock(a2,b2,c2,y,x,nlocal,Ns,bs,rank,nproc);
       /* Add the walltimes to the cumulative total */
