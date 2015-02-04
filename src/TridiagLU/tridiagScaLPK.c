@@ -25,7 +25,7 @@ int tridiagScaLPK(double *a,double *b,double *c,double *x,
   nproc = 1;
   nglobal=n;
 #else
-  MPI_Comm        *comm = (MPI_Comm*) m;
+  MPI_Comm *comm = (MPI_Comm*) m;
 
   if (comm) {
     MPI_Comm_size(*comm,&nproc);
@@ -99,9 +99,11 @@ int tridiagScaLPK(double *a,double *b,double *c,double *x,
     }
 
     /* call the ScaLAPACK function */
+    MPI_Barrier(*comm);
     gettimeofday(&start,NULL);
     pddtsv_(&nglobal,&nrhs,dl,d,du,&ia,desca,rhs,&ib,descb,work,&lwork,&ierr);
     gettimeofday(&end,NULL);
+    MPI_Barrier(*comm);
     if (ierr) return(ierr);
     
     for (i=0; i<n; i++) x[i*ns+s] = rhs[i];
