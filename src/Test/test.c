@@ -8,7 +8,7 @@
 #include <matops.h>
 
 /* Maximum block size to test */
-int MAX_BS = 0;
+int MAX_BS = 5;
 
 /* Function declarations */
 static void   CopyArray       (double*,double*,int,int);
@@ -503,38 +503,63 @@ int main_mpi(int N,int Ns,int NRuns,int rank,int nproc,int blacs_context)
 {
   int ierr = 0;
 
+#ifdef test_LUGS
   if (!rank) printf("\nTesting MPI tridiagLUGS()       with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,blacs_context,&tridiagLUGS,"walltimes_tridiagLUGS.dat"); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
-  
+#else
+  if (!rank) printf("\nSkipping tridiagLUGS(). Compile with -Dtest_LUGS flag to enable.\n");
+#endif
+
+#ifdef test_IterJacobi
   if (!rank) printf("\nTesting MPI tridiagIterJacobi() with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,0,blacs_context,&tridiagIterJacobi,"walltimes_tridiagIterJac.dat"); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
+#else
+  if (!rank) printf("\nSkipping tridiagIterJacobi(). Compile with -Dtest_IterJacobi flag to enable.\n");
+#endif
 
+#ifdef test_LU
   if (!rank) printf("\nTesting MPI tridiagLU()         with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,blacs_context,&tridiagLU,"walltimes_tridiagLU.dat"); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
+#else
+  if (!rank) printf("\nSkipping tridiagLU(). Compile with -Dtest_LU flag to enable.\n");
+#endif
 
 #ifdef with_scalapack
+#ifdef test_scalapack
   if (!rank) printf("\nTesting MPI tridiagScaLPK()     with N=%d, Ns=%d on %d processes\n",N,Ns,nproc);
   ierr = test_mpi(N,Ns,NRuns,rank,nproc,1,blacs_context,&tridiagScaLPK,"walltimes_tridiagScaLPK.dat"); if (ierr) return(ierr);
   MPI_Barrier(MPI_COMM_WORLD);
+#else
+  if (!rank) printf("\nSkipping tridiagScaLPK(). Compile with -Dtest_scalapack flag to enable.\n");
+#endif
 #endif
 
   if (!rank) printf("-----------------------------------------------------------------\n");
   MPI_Barrier(MPI_COMM_WORLD);
 
+#ifdef test_blockIterJacobi
   int bs;
   for (bs=1; bs <= MAX_BS; bs++) {
     if (!rank) printf("\nTesting MPI blocktridiagIterJacobi() with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
     ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,0,&blocktridiagIterJacobi,"walltimes_blocktridiagIterJac.dat"); if(ierr) return(ierr);
     MPI_Barrier(MPI_COMM_WORLD);
   }
+#else
+  if (!rank) printf("\nSkipping blocktridiagIterJacobi(). Compile with -Dtest_blockIterJacobi flag to enable.\n");
+#endif
+
+#ifdef testblockLU
   for (bs=1; bs <= MAX_BS; bs++) {
     if (!rank) printf("\nTesting MPI blocktridiagLU()         with N=%d, Ns=%d, bs=%d on %d processes\n",N,Ns,bs,nproc);
     ierr = test_block_mpi(N,Ns,bs,NRuns,rank,nproc,1,&blocktridiagLU,"walltimes_blocktridiagLU.dat"); if(ierr) return(ierr);
     MPI_Barrier(MPI_COMM_WORLD);
   }
+#else
+  if (!rank) printf("\nSkipping blocktridiagLU(). Compile with -Dtest_blockLU flag to enable.\n");
+#endif
   /* Return */
   return(0);
 }
@@ -602,7 +627,7 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
       TESTING THE LU SOLVER
   */
   MPI_Barrier(MPI_COMM_WORLD);
-
+#ifndef speed_test_only
   /* 
     TEST 1: Solution of an identity matrix with random
             right hand side
@@ -725,7 +750,9 @@ int test_mpi(int N,int Ns,int NRuns,int rank,int nproc, int flag, int blacs_cont
   /*
       DONE TESTING THE LU SOLVER
   */
-
+#else
+  if (!rank) printf("Skipping accuracy tests. Remove -Dspeed_test_only compilation flag to enable.\n");
+#endif
 
   /*
       TESTING WALLTIMES FOR NRuns NUMBER OF RUNS OF TRIDIAGLU()
@@ -898,6 +925,7 @@ int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
   */
   MPI_Barrier(MPI_COMM_WORLD);
 
+#ifndef speed_test_only
   /* 
     TEST 1: Solution of an identity matrix with random
             right hand side
@@ -1031,7 +1059,9 @@ int test_block_mpi(int N,int Ns,int bs,int NRuns,int rank,int nproc, int flag,
   error = CalculateErrorBlock(a2,b2,c2,y,x,nlocal,Ns,bs,rank,nproc);
   if (!rank) printf("error=%E\n",error);
   MPI_Barrier(MPI_COMM_WORLD);
-
+#else
+  if (!rank) printf("Skipping accuracy tests. Remove -Dspeed_test_only compilation flag to enable.\n");
+#endif
   /*
       DONE TESTING THE LU SOLVER
   */
